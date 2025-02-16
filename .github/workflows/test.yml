@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  push:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - '29.1'
+          - '29.2'
+          - '29.3'
+          - '29.4'
+          - 'release-snapshot'
+          - 'snapshot'
+        include:
+          - emacs_version: 'snapshot'
+            allow_failure: true
+          - emacs_version: 'release-snapshot'
+            allow_failure: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+
+      - uses: conao3/setup-cask@master
+        with:
+          version: 'snapshot'
+
+      - name: Install dependencies
+        run: '$HOME/.cask/bin/cask install'
+
+      - name: Byte compile files
+        run: '$HOME/.cask/bin/cask build'
+
+      - name: Run tests
+        if: matrix.allow_failure != true
+        run: '$HOME/.cask/bin/cask exec ert-runner'
+
+      - name: Package lint
+        run: 'cask emacs -Q -batch -f package-lint-batch-and-exit *.el || true'
+
+      - name: Checkdoc
+        run: |
+          for FILE in *.el
+          do cask emacs -batch \
+              -eval "(setq checkdoc-verb-check-experimental-flag nil)" \
+              -eval "(checkdoc-file \"${FILE}\")"
+          done
+
+      - name: Run tests (allow failure)
+        if: matrix.allow_failure == true
+        run: $HOME/.cask/bin/cask exec ert-runner || true
