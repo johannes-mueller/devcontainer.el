@@ -6,8 +6,8 @@
   `(let* ((tmp-dir (make-temp-file "devcontainer-test-repo" 'directory))
           (project-root-dir (file-name-as-directory tmp-dir)))
      (shell-command-to-string (format "tar -xf test/%s.tar --directory %s" ,test-repo tmp-dir))
-     (mocker-let ((project-current () ((:output (cons 'foo project-root-dir))))
-                  (project-root (project) ((:input `((foo . ,project-root-dir)) :output project-root-dir))))
+     (mocker-let ((project-current () ((:output (cons 'foo project-root-dir) :min-occur 0)))
+                  (project-root (project) ((:input `((foo . ,project-root-dir)) :output project-root-dir :min-occur 0))))
        (unwind-protect
            ,@body
          (delete-directory tmp-dir 'recursively)))))
@@ -205,6 +205,18 @@
                  (devcontainer-up () ((:output t))))
       (devcontainer-rebuild-and-restart))))
 
+(ert-deftest compile-start-advice-devcontainer-down ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-up () ((:output nil)))
+                 (message (msg) ((:input '("Devcontainer not running. Please start it first.")))))
+      (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
+
+(ert-deftest compilation-start-advised ()
+  (devcontainer-mode 1)
+  (should (advice-member-p 'devcontainer--compile-start-advice 'compilation-start))
+  (devcontainer-mode -1)
+  (should-not (advice-member-p 'devcontainer--compile-start-advice 'compilation-start)))
 
 (ert-deftest compile-start-advice-no-devcontainer-mode ()
   (devcontainer-mode -1)
@@ -225,16 +237,27 @@
                    (devcontainer-container-up () ((:output "8af87509ac80"))))
        (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
 
-(ert-deftest compile-start-advice-devcontainer-down ()
+(ert-deftest compilation-start-no-exclude-simple ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-container-up () ((:output nil)))
-                 (message (msg) ((:input '("Devcontainer not running. Please start it first.")))))
-      (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
+    (let ((cmd "devcontainer exec --workspace-folder . grep foo")
+          (devcontainer-execute-outside-container nil))
+    (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+                 (devcontainer-container-up () ((:output "abcdef"))))
+      (devcontainer--compile-start-advice #'my-compile-fun "grep foo")))))
 
-
-(ert-deftest compilation-start-advised ()
+(ert-deftest compilation-start-exclude-simple ()
   (devcontainer-mode 1)
-  (should (advice-member-p 'devcontainer--compile-start-advice 'compilation-start))
-  (devcontainer-mode -1)
-  (should-not (advice-member-p 'devcontainer--compile-start-advice 'compilation-start)))
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd "grep foo")
+          (devcontainer-execute-outside-container '("grep" "rg")))
+    (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
+      (devcontainer--compile-start-advice #'my-compile-fun "grep foo")))))
+
+(ert-deftest compilation-start-exclude-absolute-path ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd "/usr/bin/rg foo")
+          (devcontainer-execute-outside-container '("grep" "rg")))
+    (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
+      (devcontainer--compile-start-advice #'my-compile-fun "/usr/bin/rg foo")))))

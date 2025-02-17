@@ -17,6 +17,8 @@
 (require 'project)
 (require 'ansi-color)
 
+(defvar devcontainer-execute-outside-container '("grep" "rg" "ag"))
+
 (defun devcontainer-find-executable ()
   (executable-find "devcontainer"))
 
@@ -169,11 +171,16 @@
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
   (if (and devcontainer-mode
+           (devcontainer--devcontainerize-command command)
            (devcontainer-container-needed))
       (if (devcontainer-container-up)
           (apply compile-fun (concat "devcontainer exec --workspace-folder . " command) rest)
         (message "Devcontainer not running. Please start it first."))
     (apply compile-fun command rest)))
+
+(defun devcontainer--devcontainerize-command (command)
+  (not (member (car (split-string (file-name-base command) " "))
+               devcontainer-execute-outside-container)))
 
 (provide 'devcontainer-mode)
 
