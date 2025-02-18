@@ -83,11 +83,13 @@
 
 (ert-deftest devcontainer-image-id-existent ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((project-name (file-name-nondirectory (directory-file-name (file-name-directory project-root-dir))))
-          (root-dir-name (directory-file-name project-root-dir)))
+    (let* ((project-name (file-name-nondirectory (directory-file-name (file-name-directory project-root-dir))))
+           (root-dir-name (directory-file-name project-root-dir))
+           (cmd (format "docker images --quiet vsc-%s-abcdef-uid" project-name)))
       (mocker-let ((secure-hash (algorithm string) ((:input `(sha256 ,root-dir-name) :output "abcdef")))
-                   (project-name (pr) ((:input `((foo . ,project-root-dir)) :output project-name))))
-        (should (equal (devcontainer-image-id) (format "vcs-%s-abcdef" project-name)))))))
+                   (project-name (pr) ((:input `((foo . ,project-root-dir)) :output project-name)))
+                   (shell-command-to-string (cmd) ((:input `(,cmd) :output "d8f16cb43d9b\n"))))
+        (should (equal (devcontainer-image-id) "d8f16cb43d9b"))))))
 
 (ert-deftest container-up-devcontainer-needed-excecutable-available ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -153,18 +155,35 @@
                (user-error (msg) ((:input '("No container to be removed")))))
     (devcontainer-remove-container)))
 
-(ert-deftest remove-image-non-existent ()
+(ert-deftest remove-image-non-existent-not-needed ()
   (mocker-let ((devcontainer-container-needed () ((:output nil)))
                (user-error (msg) ((:input '("No devcontainer for current project")))))
     (devcontainer-remove-image)))
 
-(ert-deftest remove-image-existent ()
-  (mocker-let ((devcontainer-container-id () ((:output "8af87509ac80")))
-               (devcontainer-image-id () ((:output "vcs-foo-abcdef")))
-               (shell-command-to-string (cmd) ((:input '("docker container kill 8af87509ac80"))
-                                               (:input '("docker container rm 8af87509ac80"))
-                                               (:input '("docker image rm vcs-foo-abcdef"))))
-               (message (tmpl container-id) ((:input '("Removed image %s" "vcs-foo-abcdef")))))
+
+(ert-deftest remove-image-non-existent-needed ()
+  (mocker-let ((devcontainer-container-needed () ((:output t)))
+               (devcontainer-image-id () ((:output nil)))
+               (shell-command-to-string (cmd) ((:occur 0))))
+    (devcontainer-remove-image)))
+
+
+(ert-deftest remove-image-existent-no-container ()
+  (mocker-let ((devcontainer-container-needed () ((:output t)))
+               (devcontainer-container-id () ((:output nil)))
+               (devcontainer-image-id () ((:output "d8f16cb43d9b")))
+               (devcontainer-remove-container () ((:occur 0)))
+               (shell-command-to-string (cmd) ((:input '("docker image rm d8f16cb43d9b"))))
+               (message (msg id) ((:input '("Removed image %s" "d8f16cb43d9b")))))
+    (devcontainer-remove-image)))
+
+(ert-deftest remove-image-existent-with-container ()
+  (mocker-let ((devcontainer-container-needed () ((:output t)))
+               (devcontainer-container-id () ((:output "abcdef")))
+               (devcontainer-image-id () ((:output "d8f16cb43d9a")))
+               (devcontainer-remove-container () ((:occur 1)))
+               (shell-command-to-string (cmd) ((:input '("docker image rm d8f16cb43d9a"))))
+               (message (msg id) ((:input '("Removed image %s" "d8f16cb43d9a")))))
     (devcontainer-remove-image)))
 
 (ert-deftest restart-container-non-existent ()

@@ -77,11 +77,17 @@
     (devcontainer-remove-image)
     (devcontainer-up)))
 
-(defun devcontainer-image-id ()
+(defun devcontainer--image-repo-name ()
   (when (devcontainer-container-needed)
     (let ((directory-hash (secure-hash 'sha256 (directory-file-name (project-root (project-current))))))
-      (format "vcs-%s-%s" (project-name (project-current)) directory-hash))))
+      (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
+(defun devcontainer-image-id ()
+  (when-let* (((devcontainer-container-needed))
+              (cmd (format "docker images --quiet %s" (devcontainer--image-repo-name)))
+              (output (shell-command-to-string cmd)))
+    (when (> (length output) 0)
+      (substring output 0 -1))))
 
 (defun devcontainer--build-process-stdout-filter (proc string)
   (when (buffer-live-p (process-buffer proc))
@@ -141,11 +147,11 @@
 
 (defun devcontainer-remove-image ()
   (interactive)
-  (when-let* ((container-id (or (devcontainer-container-id)
-                                (user-error "No devcontainer for current project")))
+  (when-let* (((or (devcontainer-container-needed)
+                   (user-error "No devcontainer for current project")))
               (image-id (devcontainer-image-id)))
-    (shell-command-to-string (concat "docker container kill " container-id))
-    (shell-command-to-string (concat "docker container rm " container-id))
+    (when-let* ((container-id (devcontainer-container-id)))
+      (devcontainer-remove-container))
     (shell-command-to-string (concat "docker image rm " image-id))
     (message "Removed image %s" image-id)))
 
