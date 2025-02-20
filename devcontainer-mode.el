@@ -19,12 +19,16 @@
 
 (defvar devcontainer-execute-outside-container '("grep" "rg" "ag"))
 
+(defvar devcontainer--project-info nil)
+
 (defun devcontainer-find-executable ()
   (executable-find "devcontainer"))
 
 (defun devcontainer-container-needed ()
-  (file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json")))
-
+  (if (or (devcontainer--starting-or-failed)
+          (file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json")))
+      t
+    (devcontainer--set-current-project-state 'no-devcontainer)))
 
 (defun devcontainer-container-id ()
   (and (devcontainer-container-needed)
@@ -32,20 +36,34 @@
          (when (> (length output) 0)
            (substring output 0 -1)))))
 
-
 (defun devcontainer-container-up ()
-  (and (devcontainer-container-needed)
+  (and (not (devcontainer--starting-or-failed))
+       (devcontainer-container-needed)
        (let ((output (shell-command-to-string (devcontainer--determine-container-id-cmd))))
+         (devcontainer--set-current-project-state 'devcontainer-is-down)
          (when (> (length output) 0)
+           (devcontainer--set-current-project-state 'devcontainer-is-up)
            (substring output 0 -1)))))
+
+(defun devcontainer--set-current-project-state (state)
+  (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) state)
+  nil)
+
+(defun devcontainer--current-project-state ()
+  (alist-get (project-current) devcontainer--project-info nil nil 'equal))
+
+(defun devcontainer--starting-or-failed ()
+  (or (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
+      (equal (devcontainer--current-project-state) 'devcontainer-startup-failed)))
 
 (defun devcontainer-up ()
   (interactive)
-  (if (and (or (devcontainer-container-needed)
-               (message "Project does not use a devcontainer.") nil)
+  (if (and (if (devcontainer-container-needed) t
+             (message "Project does not use a devcontainer.")
+             (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer-find-executable)
                (user-error "Don't have devcontainer executable.")))
-    (let* ((stdout-buf (let ((buf (get-buffer-create "*devcontainer stdout*")))
+      (let* ((stdout-buf (let ((buf (get-buffer-create "*devcontainer stdout*")))
                            (with-current-buffer buf
                              (setq-local buffer-read-only nil)
                              (erase-buffer)
@@ -58,7 +76,9 @@
                     :command cmd
                     :buffer stdout-buf
                     :filter #'devcontainer--build-process-stdout-filter
-                    :sentinel #'devcontainer--build-sentinel))))))
+                    :sentinel #'devcontainer--build-sentinel)))
+        (process-put proc 'project-root (project-root (project-current)))
+        (devcontainer--set-current-project-state 'devcontainer-is-starting))))
 
 (defun devcontainer-restart ()
   (interactive)
@@ -98,7 +118,8 @@
         (ansi-color-apply-on-region start (point-max))))))
 
 (defun devcontainer--build-sentinel (process event)
-  (let* ((buf (process-buffer process))
+  (let* ((project-root-dir (process-get process :project-root))
+         (buf (process-buffer process))
          (cmd-result (with-current-buffer buf
                        (let ((result (progn
                                        (goto-char (point-max))
@@ -106,7 +127,7 @@
                                        (substring (buffer-string) (1- (point)))))
                              (buffer-read-only nil))
                          (goto-char (point-max))
-                         (insert (format "Process %s %s" process event))
+                         (insert (format "Process %s %s" (process-name process) event))
                          result)))
          (container-launch-result (condition-case nil
                                       (json-parse-string cmd-result)
@@ -114,14 +135,15 @@
     (if container-launch-result
         (let ((outcome (gethash "outcome" container-launch-result))
               (container-id (gethash "containerId" container-launch-result)))
+          (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-is-up)
           (if (string= outcome "success")
               (message "Sucessfully brought up container id %s" (substring container-id 0 12))
             (let ((message (gethash "message" container-launch-result))
                   (description (gethash "description" container-launch-result)))
-              (user-error "%s: %s – %s" outcome message description))))
-      (user-error "Garbeled output from `devcontainer up'. See *devcontainer stdout* buffer."))))
-
-
+              (user-error "%s: %s – %s" outcome message description)
+              (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
+      (user-error "Garbeled output from `devcontainer up'. See *devcontainer stdout* buffer.")
+      (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
 
 (defun devcontainer--determine-container-id-cmd (&optional args)
   (concat
@@ -135,6 +157,7 @@
   (when-let ((container-id (or (devcontainer-container-up)
                                (user-error "No container running"))))
     (shell-command-to-string (concat "docker container kill " container-id))
+    (devcontainer--update-project-info)
     (message "Killed container %s" container-id)))
 
 (defun devcontainer-remove-container ()
@@ -162,6 +185,11 @@
         (vterm))
     (user-error "devcontainer not running")))
 
+(defun devcontainer-ansi-term ()
+  (interactive)
+  (if (devcontainer-container-up)
+      (ansi-term (concat "devcontainer exec" (devcontainer--workspace-folder) "bash"))))
+
 (defun devcontainer--workspace-folder ()
   (concat " --workspace-folder " (project-root (project-current)) " "))
 
@@ -170,10 +198,33 @@
   "Toggle `devcontainer-mode'"
   :init-value nil
   :global t
-  :lighter "dc"
+  :lighter (:eval (devcontainer--lighter))
   (if devcontainer-mode
       (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
+
+(defun devcontainer--lighter ()
+  (concat "DevC" (devcontainer--lighter-tag)))
+
+(defun devcontainer--lighter-tag ()
+  (if (devcontainer-find-executable)
+      (let* ((current-project (project-current))
+             (devc-state (or (alist-get current-project devcontainer--project-info  nil nil 'equal)
+                             (and current-project (devcontainer--update-project-info)))))
+        (pcase devc-state
+          ('no-devcontainer "-")
+          ('devcontainer-is-down ">")
+          ('devcontainer-is-starting "*")
+          ('devcontainer-startup-failed "#")
+          ('devcontainer-is-up "!")
+          (_ "?")))
+    "¿"))
+
+(defun devcontainer--update-project-info ()
+  (and
+   (devcontainer-container-needed)
+   (devcontainer-container-up))
+  (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
   (if (and devcontainer-mode
