@@ -16,7 +16,8 @@ and forwards all your `compile` commands into the devcontainer by advising
 ## Status
 
 Just started development, need to collect some practical experiences if it
-actually works.
+actually works. **Update:** experiences and learning of one week of real life
+usage are promising.
 
 
 ## Motivation
@@ -27,7 +28,7 @@ actually works.
 software development.  The idea is to put everything the software you are
 developing needs in order to run into a docker container or a stack of
 [docker](https://docker.com) containers.  Then all your local builds and
-testing is performed inside this container.  So your development basically
+testing is performed inside that container.  So your development basically
 takes place inside the docker container – hence the name "devcontainer".
 
 The initiative came from the Visual Studio Code community. They actually run
