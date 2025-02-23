@@ -25,10 +25,12 @@
   (executable-find "devcontainer"))
 
 (defun devcontainer-container-needed ()
-  (if (or (devcontainer--starting-or-failed)
-          (file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json")))
-      t
-    (devcontainer--set-current-project-state 'no-devcontainer)))
+  (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
+        ((devcontainer--current-project-state) t)
+        ((file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json"))
+         (devcontainer--set-current-project-state 'devcontainer-needed)
+         t)
+        (t (devcontainer--set-current-project-state 'no-devcontainer))))
 
 (defun devcontainer-container-id ()
   (and (devcontainer-container-needed)
@@ -168,6 +170,7 @@
                                (user-error "No container to be removed"))))
     (shell-command-to-string (concat "docker container kill " container-id))
     (shell-command-to-string (concat "docker container rm " container-id))
+    (devcontainer--set-current-project-state 'devcontainer-needed)
     (message "Removed container %s" container-id)))
 
 (defun devcontainer-remove-image ()
@@ -217,6 +220,7 @@
                              (and current-project (devcontainer--update-project-info)))))
         (pcase devc-state
           ('no-devcontainer "-")
+          ('devcontainer-needed "+")
           ('devcontainer-is-down ">")
           ('devcontainer-is-starting "*")
           ('devcontainer-startup-failed "#")
@@ -248,12 +252,17 @@
   '("Devcontainer"
     :visible (not (equal (devcontainer--current-project-state) 'no-devcontainer))
     :active (not (equal (devcontainer--current-project-state) 'no-devcontainer))
-    ["Restart" devcontainer-restart
-     :active (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting))]
+    ["Start/Restart" devcontainer-restart
+     :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
+                  (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]
     ["Restart and rebuild" devcontainer-rebuild-restart
-     :active (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting))]
+     :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
+                  (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]
     ["Kill" devcontainer-kill-container :active (equal (devcontainer--current-project-state) 'devcontainer-is-up)]
-    ["Remove" devcontainer-remove-container]))
+    ["Remove container" devcontainer-remove-container
+     :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
+                  (not (equal (devcontainer--current-project-state) 'devcontainer-needed))
+                  (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]))
 
 (provide 'devcontainer-mode)
 

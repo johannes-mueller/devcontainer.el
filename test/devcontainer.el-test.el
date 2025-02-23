@@ -21,14 +21,29 @@
   (mocker-let ((executable-find (cmd) ((:input '("devcontainer") :output "/path/to/devcontainer"))))
     (should (equal (devcontainer-find-executable) "/path/to/devcontainer"))))
 
-(ert-deftest container-needed ()
+(ert-deftest container-is-needed ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (should (devcontainer-container-needed))))
+    (should (devcontainer-container-needed))
+    (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-needed))))))
 
-(ert-deftest container-not-needed ()
+(ert-deftest container-is-not-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (should-not (devcontainer-container-needed))
     (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer))))))
+
+(ert-deftest container-is-not-needed-already-known ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (let ((devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer))))
+      (should-not (devcontainer-container-needed))
+      (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer)))))))
+
+
+(ert-deftest container-is-needed-already-known ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (let ((devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-needed))))
+      (should (devcontainer-container-needed))
+      (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-needed)))))))
+
 
 (ert-deftest container-id-no-container-defined ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
@@ -189,10 +204,12 @@
 
 (ert-deftest remove-container-existent ()
   (mocker-let ((devcontainer-container-id () ((:output "8af87509ac80")))
+               (project-current () ((:output '(foo . "/foo/bar/"))))
                (shell-command-to-string (cmd) ((:input '("docker container kill 8af87509ac80"))
                                                (:input '("docker container rm 8af87509ac80"))))
                (message (tmpl container-id) ((:input '("Removed container %s" "8af87509ac80")))))
-    (devcontainer-remove-container)))
+    (devcontainer-remove-container)
+    (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-needed))))))
 
 (ert-deftest remove-container-non-existent ()
   (mocker-let ((devcontainer-container-id () ((:output nil)))
@@ -343,6 +360,12 @@
     (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
                  (devcontainer-find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC-")))))
+
+(ert-deftest lighter-on-project-with-container-needed ()
+  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-needed))))
+    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+                 (devcontainer-find-executable () ((:output "/some/path/devcontainer"))))
+      (should (string= (devcontainer--lighter) "DevC+")))))
 
 (ert-deftest lighter-on-project-with-container-down ()
   (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-down))))
