@@ -68,7 +68,9 @@
                              (setq-local buffer-read-only nil)
                              (erase-buffer)
                              (compilation-mode))
-                           (temp-buffer-window-show buf)
+                           (if (called-interactively-p 'interactive)
+                               (temp-buffer-window-show buf)
+                             (message "Starting devcontainer..."))
                            buf))
              (cmd `(,(devcontainer-find-executable) "up" "--workspace-folder" ,(project-root (project-current))))
              (proc (make-process

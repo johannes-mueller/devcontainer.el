@@ -120,6 +120,7 @@
           (cmd `("/some/path/devcontainer" "up" "--workspace-folder" ,project-root-dir)))
       (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer stdout*") :output stdout-buf)))
                    (devcontainer-find-executable () ((:output "/some/path/devcontainer")))
+                   (message (msg) ((:input '("Starting devcontainer..."))))
                    (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
                    (make-process (&rest args)
                                  ((:input `(:name "devcontainer up"
