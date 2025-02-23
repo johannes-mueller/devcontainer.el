@@ -193,12 +193,14 @@
 (defun devcontainer--workspace-folder ()
   (concat " --workspace-folder " (project-root (project-current)) " "))
 
+(defvar devcontainer-mode-map (make-sparse-keymap))
 
 (define-minor-mode devcontainer-mode
   "Toggle `devcontainer-mode'"
   :init-value nil
   :global t
   :lighter (:eval (devcontainer--lighter))
+  :keymap devcontainer-mode-map
   (if devcontainer-mode
       (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
@@ -238,6 +240,18 @@
 (defun devcontainer--devcontainerize-command (command)
   (not (member (car (split-string (file-name-base command) " "))
                devcontainer-execute-outside-container)))
+
+(easy-menu-define devcontainer-menu devcontainer-mode-map
+  "Menu to manage devcontainers"
+  '("Devcontainer"
+    :visible (not (equal (devcontainer--current-project-state) 'no-devcontainer))
+    :active (not (equal (devcontainer--current-project-state) 'no-devcontainer))
+    ["Restart" devcontainer-restart
+     :active (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting))]
+    ["Restart and rebuild" devcontainer-rebuild-restart
+     :active (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting))]
+    ["Kill" devcontainer-kill-container :active (equal (devcontainer--current-project-state) 'devcontainer-is-up)]
+    ["Remove" devcontainer-remove-container]))
 
 (provide 'devcontainer-mode)
 
