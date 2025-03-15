@@ -291,10 +291,9 @@
                  (devcontainer-container-execute-buffer-mode)
                  (temp-buffer-window-show buffer)
                  (get-buffer-process buffer)))
-         (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id))))
-         (pid (string-trim (shell-command-to-string (format "docker exec %s ps -t pts/%s o pid --no-headers" container-id pts)))))
-    (process-put proc 'pid pid)
-    (message "pts: |%s| pid: |%s|" pts pid)))
+         (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id)))))
+    (process-put proc 'pts pts)
+    (message "pts: |%s|" pts)))
 
 
 (defun devcontainer--exec-buffer ()
@@ -304,9 +303,9 @@
   (interactive)
   (let* ((container-id (devcontainer-container-id))
          (proc (get-buffer-process (devcontainer--exec-buffer)))
-         (pid (process-get proc 'pid)))
-    (message "killing pid: %s" pid)
-    (shell-command-to-string (format "docker exec %s kill %s" container-id pid))))
+         (pts (process-get proc 'pts)))
+    (message "killing pts: %s"  pts)
+    (shell-command-to-string (format "docker exec %s pkill -t pts/%s" container-id pts))))
 
 (defvar devcontainer-container-execute-buffer-mode-map
     (let ((map (make-sparse-keymap)))
