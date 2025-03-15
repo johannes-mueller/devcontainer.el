@@ -16,12 +16,13 @@
 
 (require 'project)
 (require 'ansi-color)
+(require 'comint)
 
 (defvar devcontainer-execute-outside-container '("grep" "rg" "ag"))
 
 (defvar devcontainer--project-info nil)
 
-(defun devcontainer-find-executable ()
+(defun devcontainer--find-executable ()
   (executable-find "devcontainer"))
 
 (defun devcontainer-container-needed ()
@@ -58,30 +59,25 @@
   (or (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
       (equal (devcontainer--current-project-state) 'devcontainer-startup-failed)))
 
-(defun devcontainer-up ()
+(defun devcontainer-up (&optional show-buffer)
   (interactive)
   (if (and (if (devcontainer-container-needed) t
              (message "Project does not use a devcontainer.")
              (devcontainer--set-current-project-state 'no-devcontainer))
-           (or (devcontainer-find-executable)
+           (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable.")))
-      (let* ((stdout-buf (let ((buf (get-buffer-create "*devcontainer stdout*")))
-                           (with-current-buffer buf
-                             (setq-local buffer-read-only nil)
-                             (erase-buffer)
-                             (compilation-mode))
-                           (if (called-interactively-p 'interactive)
-                               (temp-buffer-window-show buf)
-                             (message "Starting devcontainer..."))
-                           buf))
-             (cmd `(,(devcontainer-find-executable) "up" "--workspace-folder" ,(project-root (project-current))))
-             (proc (make-process
-                    :name "devcontainer up"
-                    :command cmd
-                    :buffer stdout-buf
-                    :filter #'devcontainer--build-process-stdout-filter
-                    :sentinel #'devcontainer--build-sentinel)))
-        (process-put proc 'project-root (project-root (project-current)))
+      (let* ((cmdargs `("up" "--workspace-folder" ,(project-root (project-current))))
+             (buffer (get-buffer-create "*devcontainer stdout*"))
+             (show-buffer (or show-buffer (called-interactively-p 'interactive)))
+             (proc (with-current-buffer buffer
+                     (let ((inhibit-read-only t)) (erase-buffer))
+                     (apply #'make-comint-in-buffer "devcontainer" buffer (devcontainer--find-executable) nil cmdargs)
+                     (devcontainer-up-buffer-mode)
+                     (when show-buffer
+                         (temp-buffer-window-show buffer))
+                     (get-buffer-process buffer))))
+        (message "Starting devcontainer...")
+        (set-process-sentinel proc #'devcontainer--build-sentinel)
         (devcontainer--set-current-project-state 'devcontainer-is-starting))))
 
 (defun devcontainer-restart ()
@@ -90,7 +86,7 @@
             (user-error "No devcontainer for current project"))
     (when (devcontainer-container-up)
       (devcontainer-kill-container))
-    (devcontainer-up)))
+    (devcontainer-up (called-interactively-p 'interactive))))
 
 (defun devcontainer-rebuild-and-restart ()
   (interactive)
@@ -99,7 +95,7 @@
     (when (devcontainer-container-up)
       (devcontainer-remove-container))
     (devcontainer-remove-image)
-    (devcontainer-up)))
+    (devcontainer-up (called-interactively-p 'interactive))))
 
 (defun devcontainer--image-repo-name ()
   (when (devcontainer-container-needed)
@@ -122,8 +118,7 @@
         (ansi-color-apply-on-region start (point-max))))))
 
 (defun devcontainer--build-sentinel (process event)
-  (let* ((project-root-dir (process-get process :project-root))
-         (buf (process-buffer process))
+  (let* ((buf (process-buffer process))
          (cmd-result (with-current-buffer buf
                        (let ((result (progn
                                        (goto-char (point-max))
@@ -214,7 +209,7 @@
   (concat "DevC" (devcontainer--lighter-tag)))
 
 (defun devcontainer--lighter-tag ()
-  (if (devcontainer-find-executable)
+  (if (devcontainer--find-executable)
       (let* ((current-project (project-current))
              (devc-state (or (alist-get current-project devcontainer--project-info  nil nil 'equal)
                              (and current-project (devcontainer--update-project-info)))))
@@ -263,6 +258,18 @@
      :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
                   (not (equal (devcontainer--current-project-state) 'devcontainer-needed))
                   (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]))
+
+
+(defvar devcontainer-up-buffer-mode-map
+    (let ((map (make-sparse-keymap)))
+      (define-key map ["q"] #'quit-window)
+    map))
+
+(define-derived-mode devcontainer-up-buffer-mode comint-mode
+  "Devcontainer Start"
+  "Major mode for devcontainer start buffers"
+  (setq-local buffer-read-only t)
+  (setq-local comint-terminfo-terminal "eterm-color"))
 
 (provide 'devcontainer-mode)
 
