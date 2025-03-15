@@ -25,6 +25,9 @@
 (defun devcontainer--find-executable ()
   (executable-find "devcontainer"))
 
+(defun devcontainer--find-docker-executable ()
+  (executable-find "docker"))
+
 (defun devcontainer-container-needed ()
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
@@ -265,11 +268,37 @@
       (define-key map ["q"] #'quit-window)
     map))
 
+
 (define-derived-mode devcontainer-up-buffer-mode comint-mode
   "Devcontainer Start"
   "Major mode for devcontainer start buffers"
   (setq-local buffer-read-only t)
   (setq-local comint-terminfo-terminal "eterm-color"))
+
+
+(defvar devcontainer--command-history nil)
+
+
+(defun devcontainer-execute-command (command)
+  (interactive
+   (list (read-from-minibuffer "Command: " (car devcontainer--command-history) nil nil '(devcontainer--command-history . 1))))
+  (when (not (devcontainer-container-up))
+    (user-error "devcontainer not running"))
+  (let* ((docker-args (append `("exec" "-it" ,(devcontainer-container-id)) (split-string-shell-command command)))
+         (buffer (get-buffer-create "*DevC command*"))
+         (name (concat "DevC-" (project-root (project-current)) "-" command)))
+    (message "docker-args %s" docker-args)
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t)) (erase-buffer))
+      (apply #'make-comint-in-buffer name buffer (devcontainer--find-docker-executable) nil docker-args)
+      (comint-mode)
+      (temp-buffer-window-show buffer)
+      (get-buffer-process buffer))))
+
+
+(defun devcontainer-kill-command ()
+  (interactive)
+  (comint-send-string (get-buffer-process (get-buffer "*DevC command*")) "\x3"))
 
 (provide 'devcontainer-mode)
 
