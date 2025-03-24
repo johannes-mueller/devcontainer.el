@@ -305,7 +305,7 @@
 (ert-deftest compile-start-advice-devcontainer-up ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd "devcontainer exec --workspace-folder . my-command foo"))
+    (let ((cmd (format "devcontainer exec --workspace-folder %s my-command foo" project-root-dir)))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-container-up () ((:output "8af87509ac80"))))
        (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
@@ -313,7 +313,7 @@
 (ert-deftest compilation-start-no-exclude-simple ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd "devcontainer exec --workspace-folder . grep foo")
+    (let ((cmd (format "devcontainer exec --workspace-folder %s grep foo" project-root-dir))
           (devcontainer-execute-outside-container nil))
     (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                  (devcontainer-container-up () ((:output "abcdef"))))

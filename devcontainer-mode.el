@@ -182,7 +182,7 @@
 (defun devcontainer-vterm ()
   (interactive)
   (if (devcontainer-container-up)
-      (let ((vterm-shell (concat "devcontainer exec" (devcontainer--workspace-folder) "bash")))
+      (let ((vterm-shell (format "devcontainer exec %s bash" (devcontainer--workspace-folder))))
         (vterm))
     (user-error "devcontainer not running")))
 
@@ -192,7 +192,7 @@
       (ansi-term (concat "devcontainer exec" (devcontainer--workspace-folder) "bash"))))
 
 (defun devcontainer--workspace-folder ()
-  (concat " --workspace-folder " (project-root (project-current)) " "))
+  (concat "--workspace-folder " (project-root (project-current))))
 
 (defvar devcontainer-mode-map (make-sparse-keymap))
 
@@ -235,7 +235,7 @@
            (devcontainer--devcontainerize-command command)
            (devcontainer-container-needed))
       (if (devcontainer-container-up)
-          (apply compile-fun (concat "devcontainer exec --workspace-folder . " command) rest)
+          (apply compile-fun (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command) rest)
         (message "Devcontainer not running. Please start it first."))
     (apply compile-fun command rest)))
 
