@@ -15,9 +15,13 @@ and forwards all your `compile` commands into the devcontainer by advising
 
 ## Status
 
-Just started development, need to collect some practical experiences if it
-actually works. **Update:** experiences and learning of one week of real life
-usage are promising.
+Development started a couple of weeks ago.  Since then, my experiences in
+practice are positive.  So I would like to encourage anyone interested in this
+to already use it and report back you experiences in the
+[issues](https://github.com/johannes-mueller/devcontainer-mode/issues)
+
+Probably there are features missing.  So also feel free to discuss your wishes
+and ideas.
 
 
 ## Motivation
