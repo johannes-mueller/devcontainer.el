@@ -293,8 +293,7 @@
                  (temp-buffer-window-show buffer)
                  (get-buffer-process buffer)))
          (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id)))))
-    (process-put proc 'pts pts)
-    (message "pts: |%s|" pts)))
+    (process-put proc 'pts pts)))
 
 
 (defun devcontainer--exec-buffer ()
@@ -305,7 +304,6 @@
   (let* ((container-id (devcontainer-container-id))
          (proc (get-buffer-process (devcontainer--exec-buffer)))
          (pts (process-get proc 'pts)))
-    (message "killing pts: %s"  pts)
     (shell-command-to-string (format "docker exec %s pkill -t pts/%s" container-id pts))))
 
 (defvar devcontainer-container-execute-buffer-mode-map
