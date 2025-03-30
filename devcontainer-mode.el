@@ -18,15 +18,21 @@
 (require 'ansi-color)
 (require 'comint)
 
-(defvar devcontainer-execute-outside-container '("grep" "rg" "ag"))
+(defcustom devcontainer-execute-outside-container '("grep" "rg" "ag")
+  "A list of programs that should not be executed inside the devcontainer."
+  :group 'devcontainer-mode
+  :type '(repeat string))
 
-(defvar devcontainer--project-info nil)
+(defvar devcontainer--project-info nil
+  "The data structure for state of the devcontainers of all active projects.")
 
 (defun devcontainer--find-executable ()
+  "Find the executable of `devcontainer'."
   (executable-find "devcontainer"))
 
 
 (defun devcontainer-container-needed ()
+  "Dertermine if the current project needs (i.e. defines) a devcontainer."
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
         ((file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json"))
@@ -35,12 +41,22 @@
         (t (devcontainer--set-current-project-state 'no-devcontainer))))
 
 (defun devcontainer-container-id ()
+  "Determine the id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
        (let ((output (shell-command-to-string (devcontainer--determine-container-id-cmd "--all"))))
          (when (> (length output) 0)
            (substring output 0 -1)))))
 
+(defun devcontainer-image-id ()
+  "Determine the image id of the primary docker container of the current project."
+  (when-let* (((devcontainer-container-needed))
+              (cmd (format "docker images --quiet %s" (devcontainer--image-repo-name)))
+              (output (shell-command-to-string cmd)))
+    (when (> (length output) 0)
+      (substring output 0 -1))))
+
 (defun devcontainer-container-up ()
+  "Check if the devcontainer of the current project is running."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed)
        (let ((output (shell-command-to-string (devcontainer--determine-container-id-cmd))))
@@ -48,6 +64,119 @@
          (when (> (length output) 0)
            (devcontainer--set-current-project-state 'devcontainer-is-up)
            (substring output 0 -1)))))
+
+;;;###autoload
+(defun devcontainer-up (&optional show-buffer)
+  "Start the devcontainer of the current project.
+
+If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
+  (interactive
+   (list (called-interactively-p 'interactive)))
+  (if (and (if (devcontainer-container-needed) t
+             (message "Project does not use a devcontainer.")
+             (devcontainer--set-current-project-state 'no-devcontainer))
+           (or (devcontainer--find-executable)
+               (user-error "Don't have devcontainer executable.")))
+      (let* ((cmdargs `("up" "--workspace-folder" ,(project-root (project-current))))
+             (buffer (get-buffer-create "*devcontainer stdout*"))
+             (proc (with-current-buffer buffer
+                     (let ((inhibit-read-only t)) (erase-buffer))
+                     (apply #'make-comint-in-buffer "devcontainer" buffer (devcontainer--find-executable) nil cmdargs)
+                     (devcontainer-up-buffer-mode)
+                     (when show-buffer
+                       (temp-buffer-window-show buffer))
+                     (get-buffer-process buffer))))
+        (message "Starting devcontainer...")
+        (set-process-sentinel proc #'devcontainer--build-sentinel)
+        (devcontainer--set-current-project-state 'devcontainer-is-starting))))
+
+;;;###autoload
+(defun devcontainer-restart (&optional show-buffer)
+  "Restart the devcontainer of the current project.
+
+If SHOW-BUFFER is non nil, the buffer of the startup process is shown.
+
+The primary docker is killed before restart.  Ohter containers of the
+devcontainer stack simply remain alive."
+  (interactive
+   (list (called-interactively-p 'interactive)))
+  (when (or (devcontainer-container-needed)
+            (user-error "No devcontainer for current project"))
+    (when (devcontainer-container-up)
+      (devcontainer-kill-container))
+    (devcontainer-up show-buffer)))
+
+;;;###autoload
+(defun devcontainer-rebuild-and-restart (&optional show-buffer)
+  "Restart the devcontainer of the current project.
+
+If SHOW-BUFFER is non nil, the buffer of the startup process is shown.
+
+The primary docker container is killed and removed before restart.
+Moreover the image of the primary docker container is removed to make
+sure that the image is rebuilt before the restart.
+
+The primary docker container is killed before restart.  Ohter containers
+of the devcontainer stack simply remain alive."
+  (interactive
+   (list (called-interactively-p 'interactive)))
+  (when (or (devcontainer-container-needed)
+            (user-error "No devcontainer for current project"))
+    (when (devcontainer-container-up)
+      (devcontainer-remove-container))
+    (devcontainer-remove-image)
+    (devcontainer-up show-buffer)))
+
+(defun devcontainer-kill-container ()
+  "Kill the primary docker container of the current project."
+  (interactive)
+  (when-let ((container-id (or (devcontainer-container-up)
+                               (user-error "No container running"))))
+    (shell-command-to-string (concat "docker container kill " container-id))
+    (devcontainer--update-project-info)
+    (message "Killed container %s" container-id)))
+
+(defun devcontainer-remove-container ()
+  "Remove the primnary docker container of the current project."
+  (interactive)
+  (when-let ((container-id (or (devcontainer-container-id)
+                               (user-error "No container to be removed"))))
+    (shell-command-to-string (concat "docker container kill " container-id))
+    (shell-command-to-string (concat "docker container rm " container-id))
+    (devcontainer--set-current-project-state 'devcontainer-needed)
+    (message "Removed container %s" container-id)))
+
+(defun devcontainer-remove-image ()
+  "Remove the image of the primary docker container of the current project."
+  (interactive)
+  (when-let* (((or (devcontainer-container-needed)
+                   (user-error "No devcontainer for current project")))
+              (image-id (devcontainer-image-id)))
+    (when-let* ((container-id (devcontainer-container-id)))
+      (devcontainer-remove-container))
+    (shell-command-to-string (concat "docker image rm " image-id))
+    (message "Removed image %s" image-id)))
+
+(defvar devcontainer-mode-map (make-sparse-keymap)
+  "The keymap for `devcontainer-mode'.")
+
+(define-minor-mode devcontainer-mode
+  "Toggle `devcontainer-mode'.
+
+When `devcontainer-mode' is active and the current projects is defining
+a devcontainer, all compilation launches are prepended with
+`devcontainer exec' so that the compilation is performed inside the
+devcontainer.  Use `devcontainer-execute-outside-container' to exclude
+programs from being executed inside the devcontainer."
+  :init-value nil
+  :global t
+  :lighter (:eval (devcontainer--lighter))
+  :keymap devcontainer-mode-map
+  :group 'devcontainer-mode
+  (if devcontainer-mode
+      (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
+    (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
+
 
 (defun devcontainer--set-current-project-state (state)
   (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) state)
@@ -60,55 +189,10 @@
   (or (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
       (equal (devcontainer--current-project-state) 'devcontainer-startup-failed)))
 
-(defun devcontainer-up (&optional show-buffer)
-  (interactive)
-  (if (and (if (devcontainer-container-needed) t
-             (message "Project does not use a devcontainer.")
-             (devcontainer--set-current-project-state 'no-devcontainer))
-           (or (devcontainer--find-executable)
-               (user-error "Don't have devcontainer executable.")))
-      (let* ((cmdargs `("up" "--workspace-folder" ,(project-root (project-current))))
-             (buffer (get-buffer-create "*devcontainer stdout*"))
-             (show-buffer (or show-buffer (called-interactively-p 'interactive)))
-             (proc (with-current-buffer buffer
-                     (let ((inhibit-read-only t)) (erase-buffer))
-                     (apply #'make-comint-in-buffer "devcontainer" buffer (devcontainer--find-executable) nil cmdargs)
-                     (devcontainer-up-buffer-mode)
-                     (when show-buffer
-                       (temp-buffer-window-show buffer))
-                     (get-buffer-process buffer))))
-        (message "Starting devcontainer...")
-        (set-process-sentinel proc #'devcontainer--build-sentinel)
-        (devcontainer--set-current-project-state 'devcontainer-is-starting))))
-
-(defun devcontainer-restart ()
-  (interactive)
-  (when (or (devcontainer-container-needed)
-            (user-error "No devcontainer for current project"))
-    (when (devcontainer-container-up)
-      (devcontainer-kill-container))
-    (devcontainer-up (called-interactively-p 'interactive))))
-
-(defun devcontainer-rebuild-and-restart ()
-  (interactive)
-  (when (or (devcontainer-container-needed)
-            (user-error "No devcontainer for current project"))
-    (when (devcontainer-container-up)
-      (devcontainer-remove-container))
-    (devcontainer-remove-image)
-    (devcontainer-up (called-interactively-p 'interactive))))
-
 (defun devcontainer--image-repo-name ()
   (when (devcontainer-container-needed)
     (let ((directory-hash (secure-hash 'sha256 (directory-file-name (project-root (project-current))))))
       (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
-
-(defun devcontainer-image-id ()
-  (when-let* (((devcontainer-container-needed))
-              (cmd (format "docker images --quiet %s" (devcontainer--image-repo-name)))
-              (output (shell-command-to-string cmd)))
-    (when (> (length output) 0)
-      (substring output 0 -1))))
 
 (defun devcontainer--build-process-stdout-filter (proc string)
   (when (buffer-live-p (process-buffer proc))
@@ -152,33 +236,6 @@
    " --format {{.ID}}"
    (when args (concat " " args))))
 
-(defun devcontainer-kill-container ()
-  (interactive)
-  (when-let ((container-id (or (devcontainer-container-up)
-                               (user-error "No container running"))))
-    (shell-command-to-string (concat "docker container kill " container-id))
-    (devcontainer--update-project-info)
-    (message "Killed container %s" container-id)))
-
-(defun devcontainer-remove-container ()
-  (interactive)
-  (when-let ((container-id (or (devcontainer-container-id)
-                               (user-error "No container to be removed"))))
-    (shell-command-to-string (concat "docker container kill " container-id))
-    (shell-command-to-string (concat "docker container rm " container-id))
-    (devcontainer--set-current-project-state 'devcontainer-needed)
-    (message "Removed container %s" container-id)))
-
-(defun devcontainer-remove-image ()
-  (interactive)
-  (when-let* (((or (devcontainer-container-needed)
-                   (user-error "No devcontainer for current project")))
-              (image-id (devcontainer-image-id)))
-    (when-let* ((container-id (devcontainer-container-id)))
-      (devcontainer-remove-container))
-    (shell-command-to-string (concat "docker image rm " image-id))
-    (message "Removed image %s" image-id)))
-
 (defun devcontainer-vterm ()
   (interactive)
   (if (devcontainer-container-up)
@@ -193,18 +250,6 @@
 
 (defun devcontainer--workspace-folder ()
   (concat "--workspace-folder " (project-root (project-current))))
-
-(defvar devcontainer-mode-map (make-sparse-keymap))
-
-(define-minor-mode devcontainer-mode
-  "Toggle `devcontainer-mode'"
-  :init-value nil
-  :global t
-  :lighter (:eval (devcontainer--lighter))
-  :keymap devcontainer-mode-map
-  (if devcontainer-mode
-      (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
-    (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
 
 (defun devcontainer--lighter ()
   (concat "DevC" (devcontainer--lighter-tag)))
