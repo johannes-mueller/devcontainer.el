@@ -36,7 +36,7 @@
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
         ((file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json"))
-         (devcontainer--set-current-project-state 'devcontainer-needed)
+         (devcontainer--set-current-project-state 'devcontainer-is-needed)
          t)
         (t (devcontainer--set-current-project-state 'no-devcontainer))))
 
@@ -55,7 +55,7 @@
     (when (> (length output) 0)
       (substring output 0 -1))))
 
-(defun devcontainer-container-up ()
+(defun devcontainer-is-up ()
   "Check if the devcontainer of the current project is running."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed)
@@ -102,7 +102,7 @@ devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-container-up)
+    (when (devcontainer-is-up)
       (devcontainer-kill-container))
     (devcontainer-up show-buffer)))
 
@@ -122,7 +122,7 @@ of the devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-container-up)
+    (when (devcontainer-is-up)
       (devcontainer-remove-container))
     (devcontainer-remove-image)
     (devcontainer-up show-buffer)))
@@ -130,7 +130,7 @@ of the devcontainer stack simply remain alive."
 (defun devcontainer-kill-container ()
   "Kill the primary docker container of the current project."
   (interactive)
-  (when-let ((container-id (or (devcontainer-container-up)
+  (when-let ((container-id (or (devcontainer-is-up)
                                (user-error "No container running"))))
     (shell-command-to-string (concat "docker container kill " container-id))
     (devcontainer--update-project-info)
@@ -143,7 +143,7 @@ of the devcontainer stack simply remain alive."
                                (user-error "No container to be removed"))))
     (shell-command-to-string (concat "docker container kill " container-id))
     (shell-command-to-string (concat "docker container rm " container-id))
-    (devcontainer--set-current-project-state 'devcontainer-needed)
+    (devcontainer--set-current-project-state 'devcontainer-is-needed)
     (message "Removed container %s" container-id)))
 
 (defun devcontainer-remove-image ()
@@ -238,14 +238,14 @@ programs from being executed inside the devcontainer."
 
 (defun devcontainer-vterm ()
   (interactive)
-  (if (devcontainer-container-up)
+  (if (devcontainer-is-up)
       (let ((vterm-shell (format "devcontainer exec %s bash" (devcontainer--workspace-folder))))
         (vterm))
     (user-error "devcontainer not running")))
 
 (defun devcontainer-ansi-term ()
   (interactive)
-  (if (devcontainer-container-up)
+  (if (devcontainer-is-up)
       (ansi-term (concat "devcontainer exec" (devcontainer--workspace-folder) "bash"))))
 
 (defun devcontainer--workspace-folder ()
@@ -261,7 +261,7 @@ programs from being executed inside the devcontainer."
                              (and current-project (devcontainer--update-project-info)))))
         (pcase devc-state
           ('no-devcontainer "-")
-          ('devcontainer-needed "+")
+          ('devcontainer-is-needed "+")
           ('devcontainer-is-down ">")
           ('devcontainer-is-starting "*")
           ('devcontainer-startup-failed "#")
@@ -272,14 +272,14 @@ programs from being executed inside the devcontainer."
 (defun devcontainer--update-project-info ()
   (and
    (devcontainer-container-needed)
-   (devcontainer-container-up))
+   (devcontainer-is-up))
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
   (if (and devcontainer-mode
            (devcontainer--devcontainerize-command command)
            (devcontainer-container-needed))
-      (if (devcontainer-container-up)
+      (if (devcontainer-is-up)
           (apply compile-fun (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command) rest)
         (message "Devcontainer not running. Please start it first."))
     (apply compile-fun command rest)))
@@ -302,7 +302,7 @@ programs from being executed inside the devcontainer."
     ["Kill" devcontainer-kill-container :active (equal (devcontainer--current-project-state) 'devcontainer-is-up)]
     ["Remove container" devcontainer-remove-container
      :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
-                  (not (equal (devcontainer--current-project-state) 'devcontainer-needed))
+                  (not (equal (devcontainer--current-project-state) 'devcontainer-is-needed))
                   (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]))
 
 
@@ -324,7 +324,7 @@ programs from being executed inside the devcontainer."
 (defun devcontainer-execute-command (command)
   (interactive
    (list (read-from-minibuffer "Command: " (car devcontainer--command-history) nil nil '(devcontainer--command-history . 1))))
-  (when (not (devcontainer-container-up))
+  (when (not (devcontainer-is-up))
     (user-error "devcontainer not running"))
   (let* ((container-id (devcontainer-container-id))
          (cmd-args (append `("exec" "--workspace-folder" ,(project-root (project-current)))
