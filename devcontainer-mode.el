@@ -243,6 +243,15 @@ programs from being executed inside the devcontainer."
         (vterm))
     (user-error "devcontainer not running")))
 
+(defun devcontainer-command-prefix ()
+  "Provide the command prefix to execute a command inside the local devcontainer.
+
+If `devcontainer-mode' is on and your current project has a devcontainer
+up and running, the string `devcontainer exec --workspace-folder
+$PROJECT_ROOT ' is returned, otherwise `nil'"
+  (when (and devcontainer-mode (devcontainer-is-up))
+    (format "devcontainer exec %s " (devcontainer--workspace-folder))))
+
 (defun devcontainer-ansi-term ()
   (interactive)
   (if (devcontainer-is-up)
