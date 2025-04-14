@@ -317,6 +317,14 @@
   (mocker-let ((my-compile-fun (command &rest rest) ((:input '("my-command foo" mode name-function hight-light-regexp continue)))))
     (devcontainer--compile-start-advice #'my-compile-fun "my-command foo" 'mode 'name-function 'hight-light-regexp 'continue)))
 
+
+(ert-deftest compile-start-advice-devcontainer-mode-no-project ()
+  (devcontainer-mode 1)
+  (mocker-let ((project-current () ((:output nil)))
+               (my-compile-fun (command &rest rest) ((:input '("my-command foo")))))
+    (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))
+
+
 (ert-deftest compile-start-advice-devcontainer-mode-no-devcontainer ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-no-devcontainer"

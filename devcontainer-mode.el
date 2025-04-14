@@ -286,6 +286,7 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
   (if (and devcontainer-mode
+           (project-current)
            (devcontainer--devcontainerize-command command)
            (devcontainer-container-needed))
       (if (devcontainer-is-up)
