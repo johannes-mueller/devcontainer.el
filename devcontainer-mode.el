@@ -278,7 +278,7 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
 (defun devcontainer-ansi-term ()
   (interactive)
   (if (devcontainer-is-up)
-      (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=eterm-256color\" bash"))))
+      (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=xterm-256color\" bash"))))
 
 (defun devcontainer--workspace-folder ()
   "Retrieve the `--workspace-folder' switch for the current project root."
