@@ -31,11 +31,17 @@
   (executable-find "devcontainer"))
 
 
+(defun devcontainer--root ()
+  "Deduce the root directory of the current project."
+  (if-let ((proj (project-current)))
+      (expand-file-name (project-root proj))
+    (user-error "Not in a project")))
+
 (defun devcontainer-container-needed ()
   "Dertermine if the current project needs (i.e. defines) a devcontainer."
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
-        ((file-exists-p (concat (project-root (project-current)) ".devcontainer/devcontainer.json"))
+        ((file-exists-p (expand-file-name ".devcontainer/devcontainer.json" (devcontainer--root)))
          (devcontainer--set-current-project-state 'devcontainer-is-needed)
          t)
         (t (devcontainer--set-current-project-state 'no-devcontainer))))
@@ -77,7 +83,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
              (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable.")))
-      (let* ((cmdargs `("up" "--workspace-folder" ,(project-root (project-current))))
+      (let* ((cmdargs `("up" "--workspace-folder" ,(devcontainer--root)))
              (buffer (get-buffer-create "*devcontainer stdout*"))
              (proc (with-current-buffer buffer
                      (let ((inhibit-read-only t)) (erase-buffer))
@@ -191,7 +197,7 @@ programs from being executed inside the devcontainer."
 
 (defun devcontainer--image-repo-name ()
   (when (devcontainer-container-needed)
-    (let ((directory-hash (secure-hash 'sha256 (directory-file-name (project-root (project-current))))))
+    (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
       (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
 (defun devcontainer--build-process-stdout-filter (proc string)
@@ -232,7 +238,7 @@ programs from being executed inside the devcontainer."
 (defun devcontainer--determine-container-id-cmd (&optional args)
   (concat
    "docker container ls --filter label=devcontainer.local_folder="
-   (substring (project-root (project-current)) 0 -1)
+   (directory-file-name (devcontainer--root))
    " --format {{.ID}}"
    (when args (concat " " args))))
 
@@ -258,7 +264,7 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
       (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=eterm-256color\" bash"))))
 
 (defun devcontainer--workspace-folder ()
-  (concat "--workspace-folder " (project-root (project-current))))
+  (concat "--workspace-folder " (devcontainer--root)))
 
 (defun devcontainer--lighter ()
   (concat "DevC" (devcontainer--lighter-tag)))
@@ -337,10 +343,10 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
   (when (not (devcontainer-is-up))
     (user-error "devcontainer not running"))
   (let* ((container-id (devcontainer-container-id))
-         (cmd-args (append `("exec" "--workspace-folder" ,(project-root (project-current)))
+         (cmd-args (append `("exec" "--workspace-folder" ,(devcontainer--root))
                            (split-string-shell-command command)))
          (buffer (get-buffer-create "*DevC command*"))
-         (name (concat "DevC-" (project-root (project-current)) "-" command))
+         (name (concat "DevC-" (devcontainer--root) "-" command))
          (proc (with-current-buffer buffer
                  (let ((inhibit-read-only t)) (erase-buffer))
                  (apply #'make-comint-in-buffer name buffer "devcontainer" nil cmd-args)
