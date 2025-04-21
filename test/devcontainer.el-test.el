@@ -3,15 +3,20 @@
 
 (defmacro fixture-tmp-dir (test-repo &rest body)
   (declare (indent 1))
-  `(let* ((tmp-dir (make-temp-file "devcontainer-test-repo" 'directory))
-          (project-root-dir (file-name-as-directory tmp-dir))
-          (devcontainer--project-info nil))
-     (shell-command-to-string (format "tar -xf test/%s.tar --directory %s" ,test-repo tmp-dir))
+  `(let* ((tmp-dir (make-temp-file "home" 'directory))
+          (real-project-root-dir (concat (file-name-as-directory tmp-dir) "project"))
+          (project-root-dir "~/project/")
+          (devcontainer--project-info nil)
+          (home-dir (getenv "HOME")))
+     (make-directory real-project-root-dir)
+     (shell-command-to-string (format "tar -xf test/%s.tar --directory %s" ,test-repo real-project-root-dir))
+     (setenv "HOME" tmp-dir)
      (mocker-let ((project-current () ((:output (cons 'foo project-root-dir) :min-occur 0)))
                   (project-root (project) ((:input `((foo . ,project-root-dir)) :output project-root-dir :min-occur 0))))
        (unwind-protect
            ,@body
-         (delete-directory tmp-dir 'recursively)))))
+         (delete-directory tmp-dir 'recursively)
+         (setenv "HOME" home-dir)))))
 
 (ert-deftest devcontainer-command-unavailable ()
   (mocker-let ((executable-find (cmd) ((:input '("devcontainer") :output nil))))
@@ -21,7 +26,7 @@
   (mocker-let ((executable-find (cmd) ((:input '("devcontainer") :output "/path/to/devcontainer"))))
     (should (equal (devcontainer--find-executable) "/path/to/devcontainer"))))
 
-(ert-deftest container-is-needed ()
+(ert-deftest container-is-needed-not-known ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (should (devcontainer-container-needed))
     (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-needed))))))
@@ -52,7 +57,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
-                tmp-dir)))
+                real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
         (should-not (devcontainer-container-id))))))
 
@@ -60,7 +65,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
-                tmp-dir)))
+                real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n"))))
         (should (equal (devcontainer-container-id) "abc"))))))
 
@@ -68,7 +73,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                tmp-dir)))
+                real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
         (should-not (devcontainer-is-up))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
@@ -77,28 +82,28 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                tmp-dir)))
+                real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n"))))
         (should (equal (devcontainer-is-up) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
 
 (ert-deftest container-id-container-starting ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-starting))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/")))))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-starting))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
       (should-not (devcontainer-is-up))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-starting)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-starting)))))))
 
 (ert-deftest container-id-container-failed ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/")))))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
       (should-not (devcontainer-is-up))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 (ert-deftest container-needed-container-failed ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/")))))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
       (should (devcontainer-container-needed))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 
 (ert-deftest container-up-no-devcontainer-needed ()
@@ -121,7 +126,7 @@
 (ert-deftest devcontainer-image-id-existent ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let* ((project-name (file-name-nondirectory (directory-file-name (file-name-directory project-root-dir))))
-           (root-dir-name (directory-file-name project-root-dir))
+           (root-dir-name (directory-file-name real-project-root-dir))
            (cmd (format "docker images --quiet vsc-%s-abcdef-uid" project-name)))
       (mocker-let ((secure-hash (algorithm string) ((:input `(sha256 ,root-dir-name) :output "abcdef")))
                    (project-name (pr) ((:input `((foo . ,project-root-dir)) :output project-name)))
@@ -131,7 +136,7 @@
 (ert-deftest container-up-devcontainer-needed-excecutable-available ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((stdout-buf (get-buffer-create "*devcontainer stdout*"))
-          (cmdargs `("up" "--workspace-folder" ,project-root-dir)))
+          (cmdargs `("up" "--workspace-folder" ,(file-name-as-directory real-project-root-dir))))
       (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer stdout*") :output stdout-buf)))
                    (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                    (message (msg) ((:input '("Starting devcontainer..."))))
@@ -148,46 +153,51 @@
     (insert "{\"outcome\":\"success\",\"containerId\":\"8af87509ac808da58ff21688019836b1d73ffea8b421b56b5c54b8f18525f382\",\"remoteUser\":\"vscode\",\"remoteWorkspaceFolder\":\"/workspaces/devcontainer.el\"}")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
-                 (project-current () ((:output '(foo . "/foo/bar/"))))
+                 (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (message (msg id) ((:input '("Successfully brought up container id %s" "8af87509ac80")))))
       (devcontainer--build-sentinel 'myproc "finished")
       (should (string-suffix-p "Process devcontainer up finished" (buffer-string)))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-up)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))))))
 
 (ert-deftest container-up-sentinel-defined-failure ()
   (with-temp-buffer
     (insert "{\"outcome\":\"error\",\"message\":\"Some error message\",\"description\":\"some description\"}")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
-                 (project-current () ((:output '(foo . "/foo/bar/"))))
+                 (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (user-error (tmpl outcome msg desc) ((:input '("%s: %s – %s" "error" "Some error message" "some description")))))
       (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")
       (should (string-suffix-p "Process devcontainer up exited abnormally with code 1" (buffer-string)))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 (ert-deftest container-up-sentinel-defined-garbled ()
   (with-temp-buffer
     (insert "Some non json stuff")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
-                 (project-current () ((:output '(foo . "/foo/bar/"))))
+                 (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (user-error (msg) ((:input '("Garbled output from `devcontainer up'.  See *devcontainer stdout* buffer")))))
       (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")
       (should (string-suffix-p "Process devcontainer up exited abnormally with code 1" (buffer-string)))
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 (ert-deftest kill-container-existent ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-up)))
-        (cmd "docker container ls --filter label=devcontainer.local_folder=/foo/bar --format {{.ID}}"))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))
+        (cmd "docker container ls --filter label=devcontainer.local_folder=/home/me/foo/bar --format {{.ID}}"))
     (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "8af87509ac80\n" :occur 1)
                                                   (:input '("docker container kill 8af87509ac80"))
                                                   (:input `(,cmd) :output "")))
                  (devcontainer-container-needed () ((:output t)))
-                 (project-current () ((:output '(foo . "/foo/bar/"))))
-                 (project-root (prg) ((:input '((foo . "/foo/bar/")) :output "/foo/bar/")))
+                 (project-current () ((:output '(foo . "~/foo/bar/"))))
+                 (project-root (prg) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/")))
                  (message (tmpl container-id) ((:input '("Killed container %s" "8af87509ac80")))))
-      (devcontainer-kill-container)
-      (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-down)))))))
+      (let ((home-dir (getenv "HOME")))
+        (unwind-protect
+            (progn
+              (setenv "HOME" "/home/me")
+              (devcontainer-kill-container)
+              (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down))))
+              (setenv "HOME" home-dir)))))))
 
 (ert-deftest kill-container-non-existent ()
   (mocker-let ((devcontainer-is-up () ((:output nil)))
@@ -195,14 +205,14 @@
     (devcontainer-kill-container)))
 
 (ert-deftest remove-container-existent ()
-  (setq devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-down)))
+  (setq devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))
   (mocker-let ((devcontainer-container-id () ((:output "8af87509ac80")))
-               (project-current () ((:output '(foo . "/foo/bar/"))))
+               (project-current () ((:output '(foo . "~/foo/bar/"))))
                (shell-command-to-string (cmd) ((:input '("docker container kill 8af87509ac80"))
                                                (:input '("docker container rm 8af87509ac80"))))
                (message (tmpl container-id) ((:input '("Removed container %s" "8af87509ac80")))))
     (devcontainer-remove-container)
-    (should (equal devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-needed))))))
+    (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-needed))))))
 
 (ert-deftest remove-container-non-existent ()
   (mocker-let ((devcontainer-container-id () ((:output nil)))
@@ -295,9 +305,14 @@
 (ert-deftest devcontainer-prefix-mode-on-with-running-devcontainer ()
   (devcontainer-mode 1)
   (mocker-let ((devcontainer-is-up () ((:output t)))
-               (project-current () ((:output '(foo . "/foo/bar/") :min-occur 1)))
-               (project-root (project) ((:input '((foo . "/foo/bar/")) :output "/foo/bar/"))))
-    (should (equal (devcontainer-command-prefix) "devcontainer exec --workspace-folder /foo/bar/ "))))
+               (project-current () ((:output '(foo . "~/foo/bar/") :min-occur 1)))
+               (project-root (project) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/"))))
+    (let ((home-dir (getenv "HOME")))
+      (unwind-protect
+         (progn
+           (setenv "HOME" "/home/me")
+           (should (equal (devcontainer-command-prefix) "devcontainer exec --workspace-folder /home/me/foo/bar/ ")))
+        (setenv "HOME" home-dir)))))
 
 (ert-deftest compile-start-advice-devcontainer-down ()
   (devcontainer-mode 1)
@@ -334,7 +349,7 @@
 (ert-deftest compile-start-advice-devcontainer-up ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format "devcontainer exec --workspace-folder %s my-command foo" project-root-dir)))
+    (let ((cmd (format "devcontainer exec --workspace-folder %s my-command foo" (file-name-as-directory real-project-root-dir))))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-is-up () ((:output "8af87509ac80"))))
        (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
@@ -342,7 +357,7 @@
 (ert-deftest compilation-start-no-exclude-simple ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format "devcontainer exec --workspace-folder %s grep foo" project-root-dir))
+    (let ((cmd (format "devcontainer exec --workspace-folder %s grep foo" (file-name-as-directory real-project-root-dir)))
           (devcontainer-execute-outside-container nil))
     (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                  (devcontainer-is-up () ((:output "abcdef"))))
@@ -372,44 +387,44 @@
 
 (ert-deftest lighter-on-projects-call-update-when-no-project-info ()
   (let ((devcontainer--project-info nil))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                  (devcontainer--update-project-info () ((:input '() :output 'no-devcontainer))))
       (should (string= (devcontainer--lighter) "DevC-")))))
 
 (ert-deftest lighter-on-project-with-no-container ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . no-devcontainer))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . no-devcontainer))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC-")))))
 
 (ert-deftest lighter-on-project-with-container-needed ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-needed))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-needed))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC+")))))
 
 (ert-deftest lighter-on-project-with-container-down ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-down))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC>")))))
 
 (ert-deftest lighter-on-project-with-container-starting ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-starting))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-starting))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC*")))))
 
 (ert-deftest lighter-on-project-with-container-startup-failed ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-startup-failed))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC#")))))
 
 (ert-deftest lighter-projects-on-project-with-container-is-up ()
-  (let ((devcontainer--project-info '(((foo . "/foo/bar/") . devcontainer-is-up))))
-    (mocker-let ((project-current () ((:output '(foo . "/foo/bar/") :min-occur 0)))
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/") :min-occur 0)))
                  (devcontainer--find-executable () ((:output "/some/path/devcontainer"))))
       (should (string= (devcontainer--lighter) "DevC!")))))
 
@@ -426,7 +441,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                tmp-dir)))
+                real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
         (should (equal (devcontainer--update-project-info) 'devcontainer-is-down))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
