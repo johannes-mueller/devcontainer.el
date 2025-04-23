@@ -309,14 +309,23 @@ update the cache."
        (devcontainer-is-up))
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
-(defun devcontainer--compile-start-advice (compile-fun command &rest rest)
-  (if (and devcontainer-mode
-           (project-current)
-           (devcontainer--devcontainerize-command command)
-           (devcontainer-container-needed))
+(defun devcontainer-advisable ()
+  "Return non-nil if it is advisable to run a command inside the container."
+  (and devcontainer-mode
+       (project-current)
+       (devcontainer-container-needed)))
+
+(defun devcontainer-advise-command (command)
+  "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
+  (if (and (devcontainer-advisable)
+           (devcontainer--devcontainerize-command command))
       (if (devcontainer-is-up)
-          (apply compile-fun (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command) rest)
-        (message "The devcontainer not running.  Please start it first."))
+          (concat (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command))
+        (user-error "The devcontainer not running.  Please start it first."))
+    command))
+
+(defun devcontainer--compile-start-advice (compile-fun command &rest rest)
+  (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
 
 (defun devcontainer--devcontainerize-command (command)
