@@ -195,7 +195,6 @@ programs from being executed inside the devcontainer."
       (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
 
-
 (defun devcontainer--set-current-project-state (state)
   "Set the current project's devcontainer state cache to STATE."
   (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) state)
@@ -204,6 +203,10 @@ programs from being executed inside the devcontainer."
 (defun devcontainer--current-project-state ()
   "Retrieve the devcontainer state of the current project."
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
+
+(defun devcontainer-invalidate-cache ()
+  "Invalidate the devcontainer state cache for the current project."
+  (setq devcontainer--project-info (assoc-delete-all (project-current) devcontainer--project-info 'equal)))
 
 (defun devcontainer--starting-or-failed ()
   "Return t if the current project's devcontainer is starting or start has failed."

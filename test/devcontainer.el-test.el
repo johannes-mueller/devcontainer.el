@@ -83,7 +83,7 @@
     (let ((cmd (format
                 "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
                 real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n"))))
+      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n" :occur 1))))
         (should (equal (devcontainer-is-up) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
 
@@ -105,6 +105,20 @@
       (should (devcontainer-container-needed))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
+(ert-deftest container-invalidate-cache-in-project ()
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)
+                                      ((bar . "~/bar/bar/") . devcontainer-is-up))))
+    (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
+      (devcontainer-invalidate-cache)
+      (should (equal devcontainer--project-info '(((bar . "~/bar/bar/") . devcontainer-is-up)))))))
+
+(ert-deftest container-invalidate-cache-outside-project ()
+  (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)
+                                      ((bar . "~/bar/bar/") . devcontainer-is-up))))
+    (mocker-let ((project-current () ((:output nil))))
+      (devcontainer-invalidate-cache)
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)
+                                                  ((bar . "~/bar/bar/") . devcontainer-is-up)))))))
 
 (ert-deftest container-up-no-devcontainer-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
