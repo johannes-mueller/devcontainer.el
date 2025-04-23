@@ -114,7 +114,7 @@
 
 (ert-deftest container-up-devcontainer-needed-no-excecutable ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer stdout*") :occur 0)))
+    (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer startup*") :occur 0)))
                  (devcontainer--find-executable () ((:output nil)))
                  (user-error (msg) ((:input '("Don't have devcontainer executable.")))))
       (devcontainer-up))))
@@ -135,9 +135,9 @@
 
 (ert-deftest container-up-devcontainer-needed-excecutable-available ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((stdout-buf (get-buffer-create "*devcontainer stdout*"))
+    (let ((stdout-buf (get-buffer-create "*devcontainer startup*"))
           (cmdargs `("up" "--workspace-folder" ,(file-name-as-directory real-project-root-dir))))
-      (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer stdout*") :output stdout-buf)))
+      (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
                    (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                    (message (msg) ((:input '("Starting devcontainer..."))))
                    (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
@@ -176,7 +176,7 @@
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
                  (project-current () ((:output '(foo . "~/foo/bar/"))))
-                 (user-error (msg) ((:input '("Garbled output from `devcontainer up'.  See *devcontainer stdout* buffer")))))
+                 (user-error (msg) ((:input '("Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")))))
       (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")
       (should (string-suffix-p "Process devcontainer up exited abnormally with code 1" (buffer-string)))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))

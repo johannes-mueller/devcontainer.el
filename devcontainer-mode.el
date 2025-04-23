@@ -92,7 +92,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable.")))
       (let* ((cmdargs `("up" "--workspace-folder" ,(devcontainer--root)))
-             (buffer (get-buffer-create "*devcontainer stdout*"))
+             (buffer (get-buffer-create "*devcontainer startup*"))
              (proc (with-current-buffer buffer
                      (let ((inhibit-read-only t)) (erase-buffer))
                      (apply #'make-comint-in-buffer "devcontainer" buffer (devcontainer--find-executable) nil cmdargs)
@@ -242,7 +242,7 @@ programs from being executed inside the devcontainer."
                   (description (gethash "description" container-launch-result)))
               (user-error "%s: %s – %s" outcome message description)
               (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
-      (user-error "Garbled output from `devcontainer up'.  See *devcontainer stdout* buffer")
+      (user-error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")
       (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
 
 (defun devcontainer--determine-container-id-cmd (&optional args)
