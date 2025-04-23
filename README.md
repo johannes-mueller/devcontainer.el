@@ -82,6 +82,18 @@ kind of `compile` command, it is actually performed inside your devcontainer.
 * `devconatainer-kill-command` – kill the process launched by
   `devcontainer-execute-command`.
 
+### Forwarding commands that are not using `compile`
+
+If you need to forward some process call into the devcontainer which is not
+done by the `compile` command of Emacs, you can use
+`devcontainer-advise-command` to prepend the `devcontainer exec` call in front
+of your command.  If you are not sure if `devcontainer-mode` is always
+available you can use the following call, which modifies your command if
+`devcontainer-mode` is available and if the command modification is advisable.
+
+```elisp
+(funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
+```
 
 ### Configuration
 
@@ -143,4 +155,7 @@ Then the Docker output in the Emacs buffers gets way more readable.
 
 ## Contributing
 
-Feel free to file issues.
+At this stage of development it would be great if you share your thoughts on
+the [discussion
+page](https://github.com/johannes-mueller/devcontainer-mode/discussions/).  If
+you have something more concrete, you can for sure also file an issue.
