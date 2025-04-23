@@ -82,6 +82,7 @@ kind of `compile` command, it is actually performed inside your devcontainer.
 * `devconatainer-kill-command` – kill the process launched by
   `devcontainer-execute-command`.
 
+
 ### Configuration
 
 As of now, there is not much configuration to be done.
@@ -120,6 +121,9 @@ into your startup file.
 Then you have a bunch of commands prefixed with `devcontainer-` to have fun
 with devcontainers. As of now they are not documented. Documentation will be
 written once some practical experience is gained.
+
+Maybe you also want to install the `coterm` package and activate `coterm-mode`.
+Then the Docker output in the Emacs buffers gets way more readable.
 
 
 ## Plans
