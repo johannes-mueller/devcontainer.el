@@ -24,12 +24,14 @@
   :type '(repeat string))
 
 (defvar devcontainer--project-info nil
-  "The data structure for state of the devcontainers of all active projects.")
+  "The data structure for state of the devcontainer's of all active projects.
+
+This is basically a cache that we need not to call the docker
+executable that often.")
 
 (defun devcontainer--find-executable ()
   "Find the executable of `devcontainer'."
   (executable-find "devcontainer"))
-
 
 (defun devcontainer--root ()
   "Deduce the root directory of the current project."
@@ -60,6 +62,12 @@
               (output (shell-command-to-string cmd)))
     (when (> (length output) 0)
       (substring output 0 -1))))
+
+(defun devcontainer--image-repo-name ()
+  "Retrieve the current project's devcontainer's docker image name."
+  (when (devcontainer-container-needed)
+    (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
+      (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
 (defun devcontainer-is-up ()
   "Check if the devcontainer of the current project is running."
@@ -133,6 +141,7 @@ of the devcontainer stack simply remain alive."
     (devcontainer-remove-image)
     (devcontainer-up show-buffer)))
 
+;;;###autoload
 (defun devcontainer-kill-container ()
   "Kill the primary docker container of the current project."
   (interactive)
@@ -142,6 +151,7 @@ of the devcontainer stack simply remain alive."
     (devcontainer--update-project-info)
     (message "Killed container %s" container-id)))
 
+;;;###autoload
 (defun devcontainer-remove-container ()
   "Remove the primnary docker container of the current project."
   (interactive)
@@ -152,6 +162,7 @@ of the devcontainer stack simply remain alive."
     (devcontainer--set-current-project-state 'devcontainer-is-needed)
     (message "Removed container %s" container-id)))
 
+;;;###autoload
 (defun devcontainer-remove-image ()
   "Remove the image of the primary docker container of the current project."
   (interactive)
@@ -166,6 +177,7 @@ of the devcontainer stack simply remain alive."
 (defvar devcontainer-mode-map (make-sparse-keymap)
   "The keymap for `devcontainer-mode'.")
 
+;;;###autoload
 (define-minor-mode devcontainer-mode
   "Toggle `devcontainer-mode'.
 
@@ -185,20 +197,18 @@ programs from being executed inside the devcontainer."
 
 
 (defun devcontainer--set-current-project-state (state)
+  "Set the current project's devcontainer state cache to STATE."
   (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) state)
   nil)
 
 (defun devcontainer--current-project-state ()
+  "Retrieve the devcontainer state of the current project."
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer--starting-or-failed ()
+  "Return t if the current project's devcontainer is starting or start has failed."
   (or (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
       (equal (devcontainer--current-project-state) 'devcontainer-startup-failed)))
-
-(defun devcontainer--image-repo-name ()
-  (when (devcontainer-container-needed)
-    (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
-      (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
 (defun devcontainer--build-process-stdout-filter (proc string)
   (when (buffer-live-p (process-buffer proc))
@@ -264,12 +274,15 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
       (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=eterm-256color\" bash"))))
 
 (defun devcontainer--workspace-folder ()
+  "Retrieve the `--workspace-folder' switch for the current project root."
   (concat "--workspace-folder " (devcontainer--root)))
 
 (defun devcontainer--lighter ()
+  "Setup the lighter for `devcontainer-mode'."
   (concat "DevC" (devcontainer--lighter-tag)))
 
 (defun devcontainer--lighter-tag ()
+  "Make the state tag for the lighter of `devcontainer-mode'."
   (if (devcontainer--find-executable)
       (let* ((current-project (project-current))
              (devc-state (or (alist-get current-project devcontainer--project-info  nil nil 'equal)
@@ -285,9 +298,12 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
     "¿"))
 
 (defun devcontainer--update-project-info ()
-  (and
-   (devcontainer-container-needed)
-   (devcontainer-is-up))
+  "Update the current project's devcontainer state info cache.
+
+Note that it happens implicitly by calling the relevant functions to
+update the cache."
+  (and (devcontainer-container-needed)
+       (devcontainer-is-up))
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
@@ -297,7 +313,7 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
            (devcontainer-container-needed))
       (if (devcontainer-is-up)
           (apply compile-fun (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command) rest)
-        (message "Devcontainer not running. Please start it first."))
+        (message "The devcontainer not running.  Please start it first."))
     (apply compile-fun command rest)))
 
 (defun devcontainer--devcontainerize-command (command)
@@ -305,7 +321,7 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
                devcontainer-execute-outside-container)))
 
 (easy-menu-define devcontainer-menu devcontainer-mode-map
-  "Menu to manage devcontainers"
+  "Menu to manage devcontainers."
   '("Devcontainer"
     :visible (not (equal (devcontainer--current-project-state) 'no-devcontainer))
     :active (not (equal (devcontainer--current-project-state) 'no-devcontainer))
@@ -337,7 +353,15 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
 
 (defvar devcontainer--command-history nil)
 
+;;;###autoload
 (defun devcontainer-execute-command (command)
+  "Execute COMMAND inside the devcontainer.
+
+This opens a buffer `*DevC command*' in which you can see and even
+interact with the running process.
+
+TODO: multiple parallel executions (maybe also in different containers)
+are not yet supported."
   (interactive
    (list (read-from-minibuffer "Command: " (car devcontainer--command-history) nil nil '(devcontainer--command-history . 1))))
   (when (not (devcontainer-is-up))
@@ -356,14 +380,12 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
          (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id)))))
     (process-put proc 'pts pts)))
 
-
-(defun devcontainer--exec-buffer ()
-  (get-buffer "*DevC command*"))
-
+;;;###autoload
 (defun devcontainer-kill-command ()
+  "Kill the process launched by `devcontainer-execute-command'."
   (interactive)
   (let* ((container-id (devcontainer-container-id))
-         (proc (get-buffer-process (devcontainer--exec-buffer)))
+         (proc (get-buffer-process (get-buffer "*DevC command*")))
          (pts (process-get proc 'pts)))
     (shell-command-to-string (format "docker exec %s pkill -t pts/%s" container-id pts))))
 

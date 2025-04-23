@@ -62,6 +62,35 @@ Then you edit files just like without using devcontainer.  Then, launching any
 kind of `compile` command, it is actually performed inside your devcontainer.
 
 
+## Usage
+
+`devcontainer-mode` provides the following commands:
+
+* `devcontianer-mode` – a globally activated minor mode, that you can just have
+  always activated.
+* `devcontainer-up` – start the devcontainer of the current project.
+* `devcontainer-restart` – stop and restart the devcontainer of the current
+  project.
+* `devcontainer-rebuild-and-restart` – stop the current project's devcontainer,
+  delete its docker images and rebuild it.  This is useful, when you for
+  example changed the `Dockerfile` of your devcontianer.
+* `devcontainer-kill-container` – stop the current project's devcontainer.
+* `devcontainer-remove-container` – remove the current project's devcontainer.
+* `devcontainer-remove-image` – remove the current project's devcontainer image.
+* `devcontainer-execute-command` – execute an arbitrary command inside the
+  devcontainer.
+* `devconatainer-kill-command` – kill the process launched by
+  `devcontainer-execute-command`.
+
+### Configuration
+
+As of now, there is not much configuration to be done.
+
+* `devcontainer-execute-outside-container` – a list of programs, not to be
+  executed inside the container but on the host system. Used for things like
+  `grep`.
+
+
 ## Installation
 
 ### Prerequisites
@@ -98,6 +127,8 @@ written once some practical experience is gained.
 - [ ] See how it works in practice
 - [ ] Fix things that don't work
 - [ ] Document things that work
+- [ ] See if we find a way to reliably connect to a language server inside the
+      container.  Maybe find inspiration from `eglot-booster-mode`.
 - [ ] See if we can get [dape](https://github.com/svaante/dape) to work with
   `devcontainer-mode`.
 - [ ] See if anything more is needed that can be implemented with a reasonable

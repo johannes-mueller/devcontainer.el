@@ -318,7 +318,7 @@
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((devcontainer-is-up () ((:output nil)))
-                 (message (msg) ((:input '("Devcontainer not running. Please start it first.")))))
+                 (message (msg) ((:input '("The devcontainer not running.  Please start it first.")))))
       (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
 
 (ert-deftest compilation-start-advised ()
