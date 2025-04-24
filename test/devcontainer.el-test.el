@@ -28,7 +28,9 @@
 
 (ert-deftest devcontainer-config-files-present ()
   (fixture-tmp-dir "test-repo-configs"
-    (should (equal (devcontainer-config-files) '(".devcontainer/devcontainer.json" ".devcontainer.json")))))
+    (should (equal (devcontainer-config-files)
+                   '(".devcontainer/devcontainer.json" ".devcontainer.json"
+                     ".devcontainer/java/devcontainer.json" ".devcontainer/python/devcontainer.json")))))
 
 (ert-deftest container-is-needed-not-known ()
   (fixture-tmp-dir "test-repo-devcontainer"
