@@ -51,12 +51,14 @@ executable that often.")
 (defun devcontainer-container-id ()
   "Determine the id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
-       (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
+       (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
+         (unless (string-empty-p out) out))))
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
-       (string-trim-right (shell-command-to-string (format "docker images --quiet %s" (devcontainer--image-repo-name))))))
+       (let ((out (string-trim-right (shell-command-to-string (format "docker images --quiet %s" (devcontainer--image-repo-name))))))
+         (unless (string-empty-p out) out))))
 
 (defun devcontainer--image-repo-name ()
   "Retrieve the current project's devcontainer's docker image name."
