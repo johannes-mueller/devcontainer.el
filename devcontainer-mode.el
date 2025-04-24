@@ -51,17 +51,14 @@ executable that often.")
 (defun devcontainer-container-id ()
   "Determine the id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
-       (let ((output (shell-command-to-string (devcontainer--determine-container-id-cmd "--all"))))
-         (when (> (length output) 0)
-           (substring output 0 -1)))))
+       (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
+         (unless (string-empty-p out) out))))
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
-  (when-let* (((devcontainer-container-needed))
-              (cmd (format "docker images --quiet %s" (devcontainer--image-repo-name)))
-              (output (shell-command-to-string cmd)))
-    (when (> (length output) 0)
-      (substring output 0 -1))))
+  (and (devcontainer-container-needed)
+       (let ((out (string-trim-right (shell-command-to-string (format "docker images --quiet %s" (devcontainer--image-repo-name))))))
+         (unless (string-empty-p out) out))))
 
 (defun devcontainer--image-repo-name ()
   "Retrieve the current project's devcontainer's docker image name."
@@ -73,11 +70,11 @@ executable that often.")
   "Check if the devcontainer of the current project is running."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed)
-       (let ((output (shell-command-to-string (devcontainer--determine-container-id-cmd))))
+       (let ((output (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd)))))
          (devcontainer--set-current-project-state 'devcontainer-is-down)
-         (when (> (length output) 0)
+         (unless (string-empty-p output)
            (devcontainer--set-current-project-state 'devcontainer-is-up)
-           (substring output 0 -1)))))
+           output))))
 
 ;;;###autoload
 (defun devcontainer-up (&optional show-buffer)
