@@ -383,7 +383,6 @@ are not yet supported."
          (proc (with-current-buffer buffer
                  (let ((inhibit-read-only t)) (erase-buffer))
                  (apply #'make-comint-in-buffer name buffer "devcontainer" nil cmd-args)
-                 (devcontainer-container-execute-buffer-mode)
                  (temp-buffer-window-show buffer)
                  (get-buffer-process buffer)))
          (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id)))))
@@ -397,22 +396,6 @@ are not yet supported."
          (proc (get-buffer-process (get-buffer "*DevC command*")))
          (pts (process-get proc 'pts)))
     (shell-command-to-string (format "docker exec %s pkill -t pts/%s" container-id pts))))
-
-(defvar devcontainer-container-execute-buffer-mode-map
-    (let ((map (make-sparse-keymap)))
-      (define-key map ["q"] (lambda ()
-                              (if (process-live-p (get-buffer-process (current-buffer)))
-                                  (insert "q")
-                                (quit-window))))
-    map))
-
-(define-derived-mode devcontainer-container-execute-buffer-mode comint-mode
-  "Devcontainer Start"
-  "Major mode for devcontainer start buffers"
-  (setq-local buffer-read-only nil)
-  (setq-local kill-buffer-hook nil)
-  (setq-local comint-terminfo-terminal "eterm-color"))
-
 
 (provide 'devcontainer-mode)
 
