@@ -44,7 +44,7 @@ executable that often.")
   "Get the JSON config files for the current project."
   (let ((default-directory (devcontainer--root)))
     (append (seq-filter #'file-exists-p '(".devcontainer/devcontainer.json" ".devcontainer.json"))
-            (file-expand-wildcards ".devcontainer/*/devcontainer.json"))))
+            (seq-sort #'string< (file-expand-wildcards ".devcontainer/*/devcontainer.json")))))
 
 (defun devcontainer-container-needed ()
   "Dertermine if the current project needs (i.e. defines) a devcontainer."
