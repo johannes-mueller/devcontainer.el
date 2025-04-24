@@ -472,3 +472,53 @@
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
         (should (equal (devcontainer--update-project-info) 'devcontainer-is-down))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
+
+(ert-deftest devcontainer--container-env-no-container ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output nil))))
+      (should-not (devcontainer-container-environment)))))
+
+(ert-deftest devcontainer--container-env-container-up ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{json .Config.Env}}")
+                                                   :output '("[\"MY_VAR=uuu\",\"SOME_VAR=foo\",\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"]")))))
+      (should (equal (devcontainer-container-environment) '(("MY_VAR" . "uuu")
+                                                            ("SOME_VAR" . "foo")
+                                                            ("PATH" . "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")))))))
+(ert-deftest devcontainer--remote-user-no-container ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output nil))))
+      (should-not (devcontainer-remote-user)))))
+
+(ert-deftest devcontainer--container-user-container-up ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("[{\"remoteUser\":\"vscode\"}]")))))
+      (should (equal (devcontainer-remote-user) "vscode")))))
+
+(ert-deftest devcontainer--remote-env-no-container ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output nil))))
+      (should-not (devcontainer-remote-environment)))))
+
+(ert-deftest devcontainer--remote-env-container-up ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (devcontainer--root () ((:output "/foo/bar/this-project/")))
+                 (devcontainer-container-environment () ((:output '(("PATH" . "/usr/local/bin:/usr/bin:/bin") ("SOME_VAR" . "foo")))))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("[{\"id\":\"./local-features/git\"},{\"id\":\"ghcr.io/devcontainers/features/common-utils:2\"},{\"remoteUser\":\"vscode\"},{\"postCreateCommand\":\"uvsync\",\"containerEnv\":{\"SOME_VAR\":\"foo\"},\"remoteEnv\":{\"PATH\":\"/workspaces/${localWorkspaceFolderBasename}/.venv/bin:${containerEnv:PATH}\",\"VIRTUAL_ENV\":\"/workspaces/${localWorkspaceFolderBasename}/.venv/\"}}]")))))
+      (should (equal (devcontainer-remote-environment)
+                     '((PATH . "/workspaces/this-project/.venv/bin:/usr/local/bin:/usr/bin:/bin")
+                       (VIRTUAL_ENV . "/workspaces/this-project/.venv/")
+                       ))))))
+
+;;; devcontainer.el-test.el ends here
