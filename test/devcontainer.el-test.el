@@ -26,6 +26,12 @@
   (mocker-let ((executable-find (cmd) ((:input '("devcontainer") :output "/path/to/devcontainer"))))
     (should (equal (devcontainer--find-executable) "/path/to/devcontainer"))))
 
+(ert-deftest devcontainer-config-files-present ()
+  (fixture-tmp-dir "test-repo-configs"
+    (should (equal (devcontainer-config-files)
+                   '(".devcontainer/devcontainer.json" ".devcontainer.json"
+                     ".devcontainer/java/devcontainer.json" ".devcontainer/python/devcontainer.json")))))
+
 (ert-deftest container-is-needed-not-known ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (should (devcontainer-container-needed))

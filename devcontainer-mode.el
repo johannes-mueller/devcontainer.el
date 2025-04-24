@@ -39,11 +39,18 @@ executable that often.")
       (expand-file-name (project-root proj))
     (user-error "Not in a project")))
 
+;; Spec: https://containers.dev/implementors/spec/#devcontainerjson
+(defun devcontainer-config-files ()
+  "Get the JSON config files for the current project."
+  (let ((default-directory (devcontainer--root)))
+    (append (seq-filter #'file-exists-p '(".devcontainer/devcontainer.json" ".devcontainer.json"))
+            (seq-sort #'string< (file-expand-wildcards ".devcontainer/*/devcontainer.json")))))
+
 (defun devcontainer-container-needed ()
   "Dertermine if the current project needs (i.e. defines) a devcontainer."
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
-        ((file-exists-p (expand-file-name ".devcontainer/devcontainer.json" (devcontainer--root)))
+        ((devcontainer-config-files)
          (devcontainer--set-current-project-state 'devcontainer-is-needed)
          t)
         (t (devcontainer--set-current-project-state 'no-devcontainer))))
