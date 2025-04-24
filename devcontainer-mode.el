@@ -40,11 +40,9 @@ executable that often.")
     (user-error "Not in a project")))
 
 ;; Spec: https://containers.dev/implementors/spec/#devcontainerjson
-(defun devcontainer-config-files (&optional root)
-  "Get the JSON config files for the project.
-When ROOT is provided, use it as a project root directory, otherwise,
-start from the root of the current project."
-  (let ((default-directory (or root (devcontainer--root))))
+(defun devcontainer-config-files ()
+  "Get the JSON config files for the current project."
+  (let ((default-directory (devcontainer--root)))
     (append (seq-filter #'file-exists-p '(".devcontainer/devcontainer.json" ".devcontainer.json"))
             (file-expand-wildcards ".devcontainer/*/devcontainer.json"))))
 
