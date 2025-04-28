@@ -521,4 +521,23 @@
                        (VIRTUAL_ENV . "/workspaces/this-project/.venv/")
                        ))))))
 
+(ert-deftest devcontainer--workdir-no-devcontainer ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (should-not (devcontainer-remote-workdir))))
+
+(ert-deftest devcontainer--workdir-devcontainer-no-workspace-parameter ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
+      (should (equal (devcontainer-remote-workdir) "/")))))
+
+(ert-deftest devcontainer--workdir-devcontainer-workspace-parameter-clean-json ()
+  (fixture-tmp-dir "test-repo-devcontainer-workspace-folder"
+    (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
+      (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
+
+(ert-deftest devcontainer--workdir-devcontainer-workspace-parameter-json-with-comments ()
+  (fixture-tmp-dir "test-repo-devcontainer-comments-json"
+    (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
+      (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
+
 ;;; devcontainer.el-test.el ends here

@@ -429,8 +429,15 @@ are not yet supported."
   "Retrieve the defined remote environment of current project's devcontainer as alist if it's up."
   (when-let* ((metadata (devcontainer--container-metadata)))
     (mapcar (lambda (elt)
-              (cons (car elt) (replace-regexp-in-string "\\${\\([[:alpha:]]+\\)\\(:[[:alpha:]]+\\)?}" #'devcontainer--lookup-variable (cdr elt))))
+              (cons (car elt) (devcontainer--interpolat-variable (cdr elt))))
             (alist-get 'remoteEnv metadata))))
+
+(defun devcontainer--interpolat-variable (string)
+  "Interpolate devcontainer variable into STRING."
+  (replace-regexp-in-string
+   "\\${\\([[:alpha:]]+\\)\\(:[[:alpha:]]+\\)?}"
+   #'devcontainer--lookup-variable
+   string))
 
 (defun devcontainer--lookup-variable (match)
   "Lookup a devcontainer variable according to MATCH.
@@ -443,6 +450,19 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
        (file-name-nondirectory (directory-file-name (devcontainer--root))))
       (`("containerEnv" . ,var-name)
        (alist-get var-name (devcontainer-container-environment) nil nil 'equal)))))
+
+(defun devcontainer-remote-workdir ()
+  "Determine the remote workspace folder."
+  (when-let* ((devcontainer-json-file (car (devcontainer-config-files)) )
+              (config (with-temp-buffer
+                        (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
+                        (devcontainer--bust-json-comments-in-buffer)
+                        (json-parse-string (buffer-string)))))
+    (devcontainer--interpolat-variable (file-name-as-directory (gethash "workspaceFolder" config "/")))))
+
+(defun devcontainer--bust-json-comments-in-buffer ()
+  (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
+    (replace-match "\\1\\2")))
 
 (provide 'devcontainer-mode)
 
