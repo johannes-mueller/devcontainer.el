@@ -323,8 +323,16 @@ update the cache."
   "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
   (if (and (devcontainer-advisable)
            (devcontainer--devcontainerize-command command))
-      (if (devcontainer-is-up)
-          (concat (format "devcontainer exec %s %s" (devcontainer--workspace-folder) command))
+      (if-let ((container-id (devcontainer-is-up)))
+          (format "docker exec --workdir %s %s %s %s"
+                  (devcontainer-remote-workdir)
+                  (string-join (mapcar (lambda (var) (if var
+                                                         (format "%s=%s" (car var) (cdr var))
+                                                       ""))
+                                       (cons nil (devcontainer-remote-environment)))
+                               " --env ")
+                  container-id
+                  command)
         (user-error "The devcontainer not running.  Please start it first."))
     command))
 
