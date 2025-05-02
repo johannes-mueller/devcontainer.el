@@ -29,6 +29,15 @@
 This is basically a cache that we need not to call the docker
 executable that often.")
 
+(defvar devcontainer-post-startup-hook nil
+  "Hook to be called after a devcontainer comes up.
+
+The hook functions should have four parameters:
+* container-id – a string representing the container id
+* container-name – a string representing the container-name
+* remote-user – a string of the remote user name
+* remote-workdir – the workdir path in the container.")
+
 (defun devcontainer--find-executable ()
   "Find the executable of `devcontainer'."
   (executable-find "devcontainer"))
@@ -244,7 +253,11 @@ programs from being executed inside the devcontainer."
               (container-id (gethash "containerId" container-launch-result)))
           (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-is-up)
           (if (string= outcome "success")
-              (message "Successfully brought up container id %s" (substring container-id 0 12))
+              (let ((container-name (gethash "composeProjectName" container-launch-result))
+                    (remote-user (gethash "remoteUser" container-launch-result))
+                    (remote-workdir (gethash "remoteWorkspaceFolder" container-launch-result)))
+                (run-hook-with-args 'devcontainer-post-startup-hook container-id container-name remote-user remote-workdir)
+                (message "Successfully brought up container id %s" (substring container-id 0 12)))
             (let ((message (gethash "message" container-launch-result))
                   (description (gethash "description" container-launch-result)))
               (user-error "%s: %s – %s" outcome message description)

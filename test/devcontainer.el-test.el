@@ -168,7 +168,7 @@
         (devcontainer-up)
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
 
-(ert-deftest container-up-sentinel-success ()
+(ert-deftest container-up-sentinel-success-no-hooks ()
   (with-temp-buffer
     (insert "{\"outcome\":\"success\",\"containerId\":\"8af87509ac808da58ff21688019836b1d73ffea8b421b56b5c54b8f18525f382\",\"remoteUser\":\"vscode\",\"remoteWorkspaceFolder\":\"/workspaces/devcontainer.el\"}")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
@@ -176,6 +176,31 @@
                  (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (message (msg id) ((:input '("Successfully brought up container id %s" "8af87509ac80")))))
       (devcontainer--build-sentinel 'myproc "finished")
+      (should (string-suffix-p "Process devcontainer up finished" (buffer-string)))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))))))
+
+(ert-deftest container-up-sentinel-success-with-hook ()
+  (defvar container-id-was nil)
+  (defvar container-name-was nil)
+  (defvar remote-user-was nil)
+  (defvar remote-workdir nil)
+  (add-hook 'devcontainer-post-startup-hook
+            (lambda (container-id container-name remote-user remote-workdir)
+              (setq container-id-was container-id)
+              (setq container-name-was container-name)
+              (setq remote-user-was remote-user)
+              (setq remote-workdir-was remote-workdir)))
+  (with-temp-buffer
+    (insert "{\"outcome\":\"success\",\"containerId\":\"8af87509ac80\",\"remoteUser\":\"vscode\",\"composeProjectName\":\"devcontainer-name\",\"remoteWorkspaceFolder\":\"/workspaces/name\"}")
+    (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
+                 (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
+                 (project-current () ((:output '(foo . "~/foo/bar/"))))
+                 (message (msg id) ((:input '("Successfully brought up container id %s" "8af87509ac80")))))
+      (devcontainer--build-sentinel 'myproc "finished")
+      (should (equal container-id-was "8af87509ac80"))
+      (should (equal container-name-was "devcontainer-name"))
+      (should (equal remote-user-was "vscode"))
+      (should (equal remote-workdir-was "/workspaces/name"))
       (should (string-suffix-p "Process devcontainer up finished" (buffer-string)))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))))))
 
