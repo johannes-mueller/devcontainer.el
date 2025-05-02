@@ -103,7 +103,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
              (message "Project does not use a devcontainer.")
              (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer--find-executable)
-               (user-error "Don't have devcontainer executable.")))
+               (user-error "Don't have devcontainer executable")))
       (let* ((cmdargs `("up" "--workspace-folder" ,(devcontainer--root)))
              (buffer (get-buffer-create "*devcontainer startup*"))
              (proc (with-current-buffer buffer

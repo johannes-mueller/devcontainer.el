@@ -136,7 +136,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer startup*") :occur 0)))
                  (devcontainer--find-executable () ((:output nil)))
-                 (user-error (msg) ((:input '("Don't have devcontainer executable.")))))
+                 (user-error (msg) ((:input '("Don't have devcontainer executable")))))
       (devcontainer-up))))
 
 (ert-deftest devcontainer-image-id-non-existent ()
