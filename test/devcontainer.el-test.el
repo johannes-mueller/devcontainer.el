@@ -58,19 +58,34 @@
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (should-not (devcontainer-container-id))))
 
-
 (ert-deftest container-id-no-container-set-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
-                real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
+    (let ((cmd-first (format
+                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
+                       real-project-root-dir))
+          (cmd-second (format
+                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
+                       real-project-root-dir)))
+      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd-first) :output "")
+                                                    (:input `(,cmd-second) :output ""))))
         (should-not (devcontainer-container-id))))))
 
-(ert-deftest container-id-container-set-up ()
+(ert-deftest container-id-container-set-up-and-not-running ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd-first (format
+                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
+                       real-project-root-dir))
+          (cmd-second (format
+                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
+                       real-project-root-dir)))
+      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd-first) :output "")
+                                                    (:input `(,cmd-second) :output "abc\n"))))
+        (should (equal (devcontainer-container-id) "abc"))))))
+
+(ert-deftest container-id-container-set-up-and-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
+                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
                 real-project-root-dir)))
       (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n"))))
         (should (equal (devcontainer-container-id) "abc"))))))

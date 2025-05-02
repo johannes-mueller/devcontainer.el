@@ -67,8 +67,10 @@ The hook functions should have four parameters:
 (defun devcontainer-container-id ()
   "Determine the id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
-       (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
-         (unless (string-empty-p out) out))))
+       (or (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd)))))
+             (unless (string-empty-p out) out))
+           (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
+             (unless (string-empty-p out) out)))))
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
