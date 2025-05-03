@@ -134,6 +134,14 @@ Otherwise, raise an `error'."
           (funcall get-ctr-id nil)
           (funcall get-ctr-id t)))))
 
+(defun devcontainer-container-name ()
+  "Determine the name of the primary docker container of the current project."
+  (when-let* ((container-id (devcontainer-container-id)))
+    (thread-first
+      (devcontainer--call-engine-string-sync "container" "inspect" container-id "--format={{.Name}}")
+      (string-trim-right)
+      (string-trim-left "/"))))
+
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
   (and (devcontainer-container-needed)

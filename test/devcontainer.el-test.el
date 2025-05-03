@@ -56,7 +56,8 @@
 
 (ert-deftest container-id-no-container-defined ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
-    (should-not (devcontainer-container-id))))
+    (should-not (devcontainer-container-id))
+    (should-not (devcontainer-container-name))))
 
 (ert-deftest container-id-no-container-set-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -69,8 +70,11 @@
                         "--format={{.ID}}"
                         "--all=true")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output nil)
+                                                                        (:input cmd-first :output nil)
                                                                         (:input cmd-second :output nil))))
-      (should-not (devcontainer-container-id))))))
+        (should-not (devcontainer-container-id))
+        (should-not (devcontainer-container-name))))))
 
 (ert-deftest container-id-container-set-up-and-not-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -81,10 +85,17 @@
           (cmd-second `("container" "ls"
                         ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
                         "--format={{.ID}}"
-                        "--all=true")))
+                        "--all=true"))
+          (cmd-name `("container" "inspect"
+                      "abc"
+                      "--format={{.Name}}")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
                                                                         (:input cmd-second :output "abc"))))
-        (should (equal (devcontainer-container-id) "abc"))))))
+        (should (equal (devcontainer-container-id) "abc")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output "abc")
+                                                                        (:input cmd-name :output "/container-name"))))
+        (should (equal (devcontainer-container-name) "container-name"))))))
 
 (ert-deftest container-id-container-set-up-and-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
