@@ -18,6 +18,7 @@
 (require 'ansi-color)
 (require 'comint)
 (require 'tramp-container)
+(require 'tramp)
 
 (defcustom devcontainer-execute-outside-container '("grep" "rg" "ag")
   "A list of programs that should not be executed inside the devcontainer."
@@ -406,6 +407,7 @@ update the cache."
   "Return non-nil if it is advisable to run a command inside the container."
   (and devcontainer-mode
        (project-current)
+       (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed)))
 
 (defun devcontainer-advise-command (command)

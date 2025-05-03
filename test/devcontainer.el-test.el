@@ -458,8 +458,18 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd "/usr/bin/rg foo")
           (devcontainer-execute-outside-container '("grep" "rg")))
-    (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
-      (devcontainer--compile-start-advice #'my-compile-fun "/usr/bin/rg foo")))))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
+        (devcontainer--compile-start-advice #'my-compile-fun "/usr/bin/rg foo")))))
+
+(ert-deftest compilation-start-no-advice-if-tramp-path ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd "foo-command"))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+                   (tramp-tramp-file-p (path) ((:input `(,project-root-dir) :output t))))
+        (should-not (devcontainer-advisable))
+        (should (equal (devcontainer-advise-command cmd) cmd))
+        (devcontainer--compile-start-advice #'my-compile-fun cmd)))))
 
 (ert-deftest lighter-not-on-project-no-project-info ()
   (let ((devcontainer--project-info nil))
