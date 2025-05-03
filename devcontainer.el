@@ -579,6 +579,23 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
     (replace-match "\\1\\2")))
 
+(defun devcontainer-tramp-dired (_container-id container-name remote-user remote-workdir)
+  "Open a Dired window inside devcontainer's working folder.
+
+When called interactively, all the arguments are determined
+automatically.  The arguments for the non-interactive call are set up in
+a compatible way to `devcontainer-post-startup-hook'.
+
+* CONTAINER-NAME – a string representing the container-name
+* REMOTE-USER – a string of the remote user name
+* REMOTE-WORKDIR – the workdir path in the container."
+  (interactive
+   (if (not (devcontainer-is-up))
+       (user-error "No running devcontainer for current project")
+     (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
+  (let ((vec (format "/docker:%s@%s:%s" remote-user container-name remote-workdir)))
+    (dired vec)))
+
 (provide 'devcontainer)
 
 ;;; devcontainer.el ends here
