@@ -1,6 +1,6 @@
 [![Tests](https://github.com/johannes-mueller/devcontainer-mode/actions/workflows/test.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer-mode/actions/workflows/test.yml)
 
-# devcontainer-mode
+# devcontainer.el
 
 Rudimentary devcontainer support for Emacs
 
@@ -48,9 +48,9 @@ using them, it is convenient for you also to use devcontainers at least to some
 degree.  Of course, you won't install an Emacs instance inside the
 devcontainer, but it is really helpful for you to manage devcontainers from
 within Emacs and interact with the installation of your software inside of it.
-That's where `devcontainer-mode` comes in.
+That's where the `devcontainer` package comes in.
 
-`devcontainer-mode` provides a set Emacs commands to build, launch, stop, erase
+`devcontainer` provides a set Emacs commands to build, launch, stop, erase
 and rebuild the devcontainer according to its definition in the project's repo.
 In order for you to run and test your software inside the devcontainer,
 `devcontainer-mode` advises Emacs' `compilation-start` function to prepend
@@ -64,7 +64,7 @@ kind of `compile` command, it is actually performed inside your devcontainer.
 
 ## Usage
 
-`devcontainer-mode` provides the following commands:
+`devcontainer` provides the following commands:
 
 * `devcontianer-mode` – a globally activated minor mode, that you can just have
   always activated.
@@ -87,9 +87,9 @@ kind of `compile` command, it is actually performed inside your devcontainer.
 If you need to forward some process call into the devcontainer which is not
 done by the `compile` command of Emacs, you can use
 `devcontainer-advise-command` to prepend the `devcontainer exec` call in front
-of your command.  If you are not sure if `devcontainer-mode` is always
-available you can use the following call, which modifies your command if
-`devcontainer-mode` is available and if the command modification is advisable.
+of your command.  If you are not sure if `devcontainer` is always available you
+can use the following call, which modifies your command if `devcontainer` is
+available and if the command modification is advisable.
 
 ```elisp
 (funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
@@ -126,8 +126,8 @@ At the moment the most convenient method to install it is using
 into your startup file.
 
 ``` elisp
-(use-package devcontainer-mode
-  :straight (devcontainer-mode :type git :host github :repo "johannes-mueller/devcontainer-mode"))
+(use-package devcontainer
+  :straight (devcontainer :type git :host github :repo "johannes-mueller/devcontainer-mode"))
 ```
 
 Then you have a bunch of commands prefixed with `devcontainer-` to have fun
@@ -150,7 +150,7 @@ Then the Docker output in the Emacs buffers gets way more readable.
 - [ ] See if anything more is needed that can be implemented with a reasonable
   effort.
 - [ ] Announce it to [melpa](https://melpa.org/)
-- [ ] Enjoy `devcontainer-mode` in real life programming
+- [ ] Enjoy the `devcontainer` package in real life programming
 
 
 ## Contributing

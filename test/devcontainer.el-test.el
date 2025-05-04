@@ -1,5 +1,5 @@
 (require 'mocker)
-(require 'devcontainer-mode)
+(require 'devcontainer)
 
 (defmacro fixture-tmp-dir (test-repo &rest body)
   (declare (indent 1))

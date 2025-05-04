@@ -1,4 +1,4 @@
-;;; devcontainer-mode --- Support for devcontainer in emacs -*- lexical-binding: t; -*-
+;;; devcontainer --- Support for devcontainer in emacs -*- lexical-binding: t; -*-
 
 ;; Author: Johannes Mueller <github@johannes-mueller.org>
 ;; URL: https://github.com/johannes-mueller/devcontainer-mode
@@ -20,7 +20,7 @@
 
 (defcustom devcontainer-execute-outside-container '("grep" "rg" "ag")
   "A list of programs that should not be executed inside the devcontainer."
-  :group 'devcontainer-mode
+  :group 'devcontainer
   :type '(repeat string))
 
 (defvar devcontainer--project-info nil
@@ -205,7 +205,7 @@ programs from being executed inside the devcontainer."
   :global t
   :lighter (:eval (devcontainer--lighter))
   :keymap devcontainer-mode-map
-  :group 'devcontainer-mode
+  :group 'devcontainer
   (if devcontainer-mode
       (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
@@ -487,6 +487,6 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
     (replace-match "\\1\\2")))
 
-(provide 'devcontainer-mode)
+(provide 'devcontainer)
 
-;;; devcontainer-mode.el ends here
+;;; devcontainer.el ends here
