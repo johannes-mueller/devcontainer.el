@@ -23,6 +23,15 @@
   :group 'devcontainer
   :type '(repeat string))
 
+(defcustom devcontainer-engine 'docker
+  "The container engine to use, one of `docker' or `podman'.
+
+To specify the path of the podman/docker executable, customise
+`tramp-podman-program' or `tramp-docker-program'."
+  :group 'devcontainer
+  :type '(choice (const podman)
+                 (const docker)))
+
 (defvar devcontainer--project-info nil
   "The data structure for state of the devcontainer's of all active projects.
 
