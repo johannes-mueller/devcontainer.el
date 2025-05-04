@@ -117,17 +117,28 @@ Otherwise, raise an `error'."
 
 (defun devcontainer-container-id ()
   "Determine the id of the primary docker container of the current project."
-  (and (devcontainer-container-needed)
-       (or (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd)))))
-             (unless (string-empty-p out) out))
-           (let ((out (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd "--all")))))
-             (unless (string-empty-p out) out)))))
+  (let ((get-ctr-id
+         (lambda (all)
+           (devcontainer--call-engine-string-sync
+            "container"
+            "ls"
+            (format
+             "--filter=label=devcontainer.local_folder=%s"
+             (directory-file-name (devcontainer--root)))
+            "--format={{.ID}}"
+            (format "--all=%s" (if all "true" "false"))))))
+    (and (devcontainer-container-needed)
+         (or
+          (funcall get-ctr-id nil)
+          (funcall get-ctr-id t)))))
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
   (and (devcontainer-container-needed)
-       (let ((out (string-trim-right (shell-command-to-string (format "docker images --quiet %s" (devcontainer--image-repo-name))))))
-         (unless (string-empty-p out) out))))
+       (devcontainer--call-engine-string-sync
+        "images"
+        "--quiet"
+        (devcontainer--image-repo-name))))
 
 (defun devcontainer--image-repo-name ()
   "Retrieve the current project's devcontainer's docker image name."
@@ -139,11 +150,16 @@ Otherwise, raise an `error'."
   "Check if the devcontainer of the current project is running."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed)
-       (let ((output (string-trim-right (shell-command-to-string (devcontainer--determine-container-id-cmd)))))
+       (let ((output (devcontainer--call-engine-string-sync
+                      "container"
+                      "ls"
+                      "--format={{.ID}}"
+                      (format "--filter=label=devcontainer.local_folder=%s"
+                              (directory-file-name (devcontainer--root))))))
          (devcontainer--set-current-project-state 'devcontainer-is-down)
-         (unless (string-empty-p output)
-           (devcontainer--set-current-project-state 'devcontainer-is-up)
-           output))))
+         (when output
+           (devcontainer--set-current-project-state 'devcontainer-is-up))
+         output)))
 
 ;;;###autoload
 (defun devcontainer-up (&optional show-buffer)
@@ -157,11 +173,16 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
              (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable")))
-      (let* ((cmdargs `("up" "--workspace-folder" ,(devcontainer--root)))
+      (let* ((cmd (devcontainer--make-cli-args "up"))
              (buffer (get-buffer-create "*devcontainer startup*"))
              (proc (with-current-buffer buffer
                      (let ((inhibit-read-only t)) (erase-buffer))
-                     (apply #'make-comint-in-buffer "devcontainer" buffer (devcontainer--find-executable) nil cmdargs)
+                     (apply #'make-comint-in-buffer
+                            "devcontainer"
+                            buffer
+                            (car cmd)
+                            nil         ; STARTFILE
+                            (cdr cmd))
                      (devcontainer-up-buffer-mode)
                      (when show-buffer
                        (temp-buffer-window-show buffer))
@@ -213,7 +234,9 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let ((container-id (or (devcontainer-is-up)
                                (user-error "No container running"))))
-    (shell-command-to-string (concat "docker container kill " container-id))
+    (devcontainer--call-engine-string-sync "container"
+                                           "kill"
+                                           container-id)
     (devcontainer--update-project-info)
     (message "Killed container %s" container-id)))
 
@@ -223,8 +246,10 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let ((container-id (or (devcontainer-container-id)
                                (user-error "No container to be removed"))))
-    (shell-command-to-string (concat "docker container kill " container-id))
-    (shell-command-to-string (concat "docker container rm " container-id))
+    (devcontainer-kill-container)
+    (devcontainer--call-engine-string-sync "container"
+                                           "rm"
+                                           container-id)
     (devcontainer--set-current-project-state 'devcontainer-is-needed)
     (message "Removed container %s" container-id)))
 
@@ -237,7 +262,9 @@ of the devcontainer stack simply remain alive."
               (image-id (devcontainer-image-id)))
     (when-let* ((container-id (devcontainer-container-id)))
       (devcontainer-remove-container))
-    (shell-command-to-string (concat "docker image rm " image-id))
+    (devcontainer--call-engine-string-sync "image"
+                                           "rm"
+                                           image-id)
     (message "Removed image %s" image-id)))
 
 (defvar devcontainer-mode-map (make-sparse-keymap)
@@ -317,13 +344,6 @@ programs from being executed inside the devcontainer."
               (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
       (user-error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")
       (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
-
-(defun devcontainer--determine-container-id-cmd (&optional args)
-  (concat
-   "docker container ls --filter label=devcontainer.local_folder="
-   (directory-file-name (devcontainer--root))
-   " --format {{.ID}}"
-   (when args (concat " " args))))
 
 (defun devcontainer-vterm ()
   (interactive)
@@ -476,14 +496,22 @@ are not yet supported."
   (let* ((container-id (devcontainer-container-id))
          (proc (get-buffer-process (get-buffer "*DevC command*")))
          (pts (process-get proc 'pts)))
-    (shell-command-to-string (format "docker exec %s pkill -t pts/%s" container-id pts))))
+    (devcontainer--call-engine-string-sync "exec"
+                                           container-id
+                                           "pkill"
+                                           "-t"
+                                           (format "pts/%s" pts))))
 
 (defun devcontainer-container-environment ()
   "Retrieve the container environment of current project's devcontainer as alist if it's up."
   (when-let* ((container-id (devcontainer-container-id)))
     (mapcar (lambda (varstring) (apply #'cons (split-string varstring "=")))
             (json-parse-string
-             (car (process-lines "docker" "container" "inspect" container-id "--format={{json .Config.Env}}"))
+             (car (process-lines (devcontainer--docker-path)
+                                 "container"
+                                 "inspect"
+                                 "--format={{json .Config.Env}}"
+                                 container-id))
              :object-type 'alist))))
 
 (defun devcontainer--container-metadata ()
