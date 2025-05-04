@@ -17,6 +17,7 @@
 (require 'project)
 (require 'ansi-color)
 (require 'comint)
+(require 'tramp-container)
 
 (defcustom devcontainer-execute-outside-container '("grep" "rg" "ag")
   "A list of programs that should not be executed inside the devcontainer."
