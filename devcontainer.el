@@ -47,6 +47,48 @@ The hook functions should have four parameters:
 * remote-user – a string of the remote user name
 * remote-workdir – the workdir path in the container.")
 
+(defun devcontainer--docker-path ()
+  "Return the path of the Docker-compatible command to call.
+If `devcontainer-engine' equals \"docker\", use `tramp-docker-program',
+else `tramp-podman-program'."
+  (if (eq 'docker devcontainer-engine)
+      tramp-docker-program
+    tramp-podman-program))
+
+(defun devcontainer--call-engine-string-sync (&rest args)
+  "Call `devcontainer-engine' with ARGS.
+If the command exit code is 0, return output or nil for empty output.
+Otherwise, raise an `error'."
+  (with-temp-buffer
+    ;; LET* for ordering guarantee
+    (let* ((ret (apply
+                 #'call-process
+                 (devcontainer--docker-path)
+                 nil                            ; INFILE
+                 (current-buffer)
+                 nil                            ; DISPLAY
+                 args))
+           (out (string-trim-right
+                 (buffer-substring-no-properties (point-min)
+                                                 (point-max)))))
+      (if (eql 0 ret)
+          (and (not (string-empty-p out)) out)
+        (error
+         "%s returned %d: %s"
+         devcontainer-engine
+         ret
+         out)))))
+
+(defun devcontainer--make-cli-args (verb &rest args)
+  (append
+   (list
+    (devcontainer--find-executable)
+    (format "--docker-path=%s" (devcontainer--docker-path))
+    (format "--workspace-folder=%s" (devcontainer--root))
+    verb)
+   ;; TODO dotfiles argument
+   args))
+
 (defun devcontainer--find-executable ()
   "Find the executable of `devcontainer'."
   (executable-find "devcontainer"))
