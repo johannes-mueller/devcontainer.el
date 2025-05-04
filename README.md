@@ -1,4 +1,4 @@
-[![Tests](https://github.com/johannes-mueller/devcontainer-mode/actions/workflows/test.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer-mode/actions/workflows/test.yml)
+[![Tests](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml)
 
 # devcontainer.el
 
@@ -18,7 +18,7 @@ and forwards all your `compile` commands into the devcontainer by advising
 Development started a couple of weeks ago.  Since then, my experiences in
 practice are positive.  So I would like to encourage anyone interested in this
 to already use it and report back you experiences in the
-[issues](https://github.com/johannes-mueller/devcontainer-mode/issues)
+[issues](https://github.com/johannes-mueller/devcontainer.el/issues)
 
 Probably there are features missing.  So also feel free to discuss your wishes
 and ideas.
@@ -127,7 +127,7 @@ into your startup file.
 
 ``` elisp
 (use-package devcontainer
-  :straight (devcontainer :type git :host github :repo "johannes-mueller/devcontainer-mode"))
+  :straight (devcontainer :type git :host github :repo "johannes-mueller/devcontainer.el"))
 ```
 
 Then you have a bunch of commands prefixed with `devcontainer-` to have fun
@@ -157,5 +157,5 @@ Then the Docker output in the Emacs buffers gets way more readable.
 
 At this stage of development it would be great if you share your thoughts on
 the [discussion
-page](https://github.com/johannes-mueller/devcontainer-mode/discussions/).  If
+page](https://github.com/johannes-mueller/devcontainer.el/discussions/).  If
 you have something more concrete, you can for sure also file an issue.

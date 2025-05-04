@@ -1,7 +1,7 @@
 ;;; devcontainer --- Support for devcontainer in emacs -*- lexical-binding: t; -*-
 
 ;; Author: Johannes Mueller <github@johannes-mueller.org>
-;; URL: https://github.com/johannes-mueller/devcontainer-mode
+;; URL: https://github.com/johannes-mueller/devcontainer.el
 ;; Version: 0.1.0
 ;; License: GPLv3
 ;; SPDX-License-Identifier: GPL-3.0-only
