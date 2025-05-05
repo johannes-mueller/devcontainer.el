@@ -60,51 +60,56 @@
 
 (ert-deftest container-id-no-container-set-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd-first (format
-                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                       real-project-root-dir))
-          (cmd-second (format
-                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
-                       real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd-first) :output "")
-                                                    (:input `(,cmd-second) :output ""))))
-        (should-not (devcontainer-container-id))))))
+    (let ((cmd-first `("container" "ls"
+                       ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                       "--format={{.ID}}"
+                       "--all=false"))
+          (cmd-second `("container" "ls"
+                        ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                        "--format={{.ID}}"
+                        "--all=true")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output nil))))
+      (should-not (devcontainer-container-id))))))
 
 (ert-deftest container-id-container-set-up-and-not-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd-first (format
-                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                       real-project-root-dir))
-          (cmd-second (format
-                       "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}} --all"
-                       real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd-first) :output "")
-                                                    (:input `(,cmd-second) :output "abc\n"))))
+    (let ((cmd-first `("container" "ls"
+                       ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                       "--format={{.ID}}"
+                       "--all=false"))
+          (cmd-second `("container" "ls"
+                        ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                        "--format={{.ID}}"
+                        "--all=true")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output "abc"))))
         (should (equal (devcontainer-container-id) "abc"))))))
 
 (ert-deftest container-id-container-set-up-and-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n"))))
+    (let ((cmd `("container" "ls"
+                 ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                 "--format={{.ID}}"
+                 "--all=false")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output "abc"))))
         (should (equal (devcontainer-container-id) "abc"))))))
 
 (ert-deftest container-id-no-container-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
+    (let ((cmd `("container" "ls"
+                 ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                 "--format={{.ID}}")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should-not (devcontainer-is-up))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
 
 (ert-deftest container-id-container-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "abc\n" :occur 1))))
+    (let ((cmd `("container" "ls"
+                 ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                 "--format={{.ID}}")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output "abc" :occur 1))))
         (should (equal (devcontainer-is-up) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
 
@@ -162,20 +167,23 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let* ((project-name (file-name-nondirectory (directory-file-name (file-name-directory project-root-dir))))
            (root-dir-name (directory-file-name real-project-root-dir))
-           (cmd (format "docker images --quiet vsc-%s-abcdef-uid" project-name)))
+           (cmd `("images" "--quiet" ,(format "vsc-%s-abcdef-uid" project-name))))
       (mocker-let ((secure-hash (algorithm string) ((:input `(sha256 ,root-dir-name) :output "abcdef")))
                    (project-name (pr) ((:input `((foo . ,project-root-dir)) :output project-name)))
-                   (shell-command-to-string (cmd) ((:input `(,cmd) :output "d8f16cb43d9b\n"))))
+                   (devcontainer--call-engine-string-sync (&rest cmd) ((:input cmd :output "d8f16cb43d9b"))))
         (should (equal (devcontainer-image-id) "d8f16cb43d9b"))))))
 
-(ert-deftest container-up-devcontainer-needed-excecutable-available ()
+(ert-deftest container-up-devcontainer-needed-executable-available ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((stdout-buf (get-buffer-create "*devcontainer startup*"))
-          (cmdargs `("up" "--workspace-folder" ,(file-name-as-directory real-project-root-dir))))
+          (cmdargs `("--docker-path" "/path/to/docker"
+                     "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                     "up")))
       (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
                    (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                    (message (msg) ((:input '("Starting devcontainer..."))))
                    (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
                    (make-comint-in-buffer (proc-name buf cmd startfile &rest args)
                                           ((:input (append `("devcontainer" ,stdout-buf "/some/path/devcontainer" nil) cmdargs))))
                    (get-buffer-process (buf) ((:input `(,stdout-buf) :output 'proc)))
@@ -243,10 +251,13 @@
 
 (ert-deftest kill-container-existent ()
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))
-        (cmd "docker container ls --filter label=devcontainer.local_folder=/home/me/foo/bar --format {{.ID}}"))
-    (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output "8af87509ac80\n" :occur 1)
-                                                  (:input '("docker container kill 8af87509ac80"))
-                                                  (:input `(,cmd) :output "")))
+        (cmd '("container" "ls"
+               "--filter=label=devcontainer.local_folder=/home/me/foo/bar"
+               "--format={{.ID}}")))
+    (mocker-let ((devcontainer--call-engine-string-sync (&rest _cmd)
+                                                        ((:input cmd :output "8af87509ac80" :occur 1)
+                                                         (:input '("container" "kill" "8af87509ac80"))
+                                                         (:input cmd :output nil)))
                  (devcontainer-container-needed () ((:output t)))
                  (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (project-root (prg) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/")))
@@ -268,8 +279,8 @@
   (setq devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))
   (mocker-let ((devcontainer-container-id () ((:output "8af87509ac80")))
                (project-current () ((:output '(foo . "~/foo/bar/"))))
-               (shell-command-to-string (cmd) ((:input '("docker container kill 8af87509ac80"))
-                                               (:input '("docker container rm 8af87509ac80"))))
+               (devcontainer--call-engine-string-sync (&rest cmd) ((:input '("container" "kill" "8af87509ac80"))
+                                                                   (:input '("container" "rm" "8af87509ac80"))))
                (message (tmpl container-id) ((:input '("Removed container %s" "8af87509ac80")))))
     (devcontainer-remove-container)
     (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-needed))))))
@@ -288,7 +299,7 @@
 (ert-deftest remove-image-non-existent-needed ()
   (mocker-let ((devcontainer-container-needed () ((:output t)))
                (devcontainer-image-id () ((:output nil)))
-               (shell-command-to-string (cmd) ((:occur 0))))
+               (devcontainer--call-engine-string-sync (cmd) ((:occur 0))))
     (devcontainer-remove-image)))
 
 
@@ -297,7 +308,7 @@
                (devcontainer-container-id () ((:output nil)))
                (devcontainer-image-id () ((:output "d8f16cb43d9b")))
                (devcontainer-remove-container () ((:occur 0)))
-               (shell-command-to-string (cmd) ((:input '("docker image rm d8f16cb43d9b"))))
+               (devcontainer--call-engine-string-sync (&rest args) ((:input '("image" "rm" "d8f16cb43d9b"))))
                (message (msg id) ((:input '("Removed image %s" "d8f16cb43d9b")))))
     (devcontainer-remove-image)))
 
@@ -306,7 +317,7 @@
                (devcontainer-container-id () ((:output "abcdef")))
                (devcontainer-image-id () ((:output "d8f16cb43d9a")))
                (devcontainer-remove-container () ((:occur 1)))
-               (shell-command-to-string (cmd) ((:input '("docker image rm d8f16cb43d9a"))))
+               (devcontainer--call-engine-string-sync (&rest args) ((:input '("image" "rm" "d8f16cb43d9a"))))
                (message (msg id) ((:input '("Removed image %s" "d8f16cb43d9a")))))
     (devcontainer-remove-image)))
 
@@ -510,10 +521,10 @@
 
 (ert-deftest devcontainer-state-container-down ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd (format
-                "docker container ls --filter label=devcontainer.local_folder=%s --format {{.ID}}"
-                real-project-root-dir)))
-      (mocker-let ((shell-command-to-string (_cmd) ((:input `(,cmd) :output ""))))
+    (let ((cmd `("container" "ls"
+                 ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
+                 "--format={{.ID}}")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should (equal (devcontainer--update-project-info) 'devcontainer-is-down))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
 
@@ -583,5 +594,19 @@
   (fixture-tmp-dir "test-repo-devcontainer-comments-json"
     (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
       (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
+
+
+(ert-deftest devcontainer--call-engine-string-sync-null-result ()
+  (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
+    (should-not (devcontainer--call-engine-string-sync "null-result"))))
+
+(ert-deftest devcontainer--call-engine-string-sync-error ()
+  (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
+    (should-error (devcontainer--call-engine-string-sync "error"))))
+
+(ert-deftest devcontainer--call-engine-string-sync-one-line-result ()
+  (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
+    (should (equal (devcontainer--call-engine-string-sync "one-line" "foobar") "foobar"))))
+
 
 ;;; devcontainer.el-test.el ends here

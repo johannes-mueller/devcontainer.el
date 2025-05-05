@@ -84,8 +84,8 @@ Otherwise, raise an `error'."
   (append
    (list
     (devcontainer--find-executable)
-    (format "--docker-path=%s" (devcontainer--docker-path))
-    (format "--workspace-folder=%s" (devcontainer--root))
+    "--docker-path" (devcontainer--docker-path)
+    "--workspace-folder" (devcontainer--root)
     verb)
    ;; TODO dotfiles argument
    args))
@@ -154,9 +154,9 @@ Otherwise, raise an `error'."
        (let ((output (devcontainer--call-engine-string-sync
                       "container"
                       "ls"
-                      "--format={{.ID}}"
                       (format "--filter=label=devcontainer.local_folder=%s"
-                              (directory-file-name (devcontainer--root))))))
+                              (directory-file-name (devcontainer--root)))
+                      "--format={{.ID}}")))
          (devcontainer--set-current-project-state 'devcontainer-is-down)
          (when output
            (devcontainer--set-current-project-state 'devcontainer-is-up))
@@ -247,7 +247,9 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let ((container-id (or (devcontainer-container-id)
                                (user-error "No container to be removed"))))
-    (devcontainer-kill-container)
+    (devcontainer--call-engine-string-sync "container"
+                                           "kill"
+                                           container-id)
     (devcontainer--call-engine-string-sync "container"
                                            "rm"
                                            container-id)
@@ -511,8 +513,8 @@ are not yet supported."
              (car (process-lines (devcontainer--docker-path)
                                  "container"
                                  "inspect"
-                                 "--format={{json .Config.Env}}"
-                                 container-id))
+                                 container-id
+                                 "--format={{json .Config.Env}}"))
              :object-type 'alist))))
 
 (defun devcontainer--container-metadata ()
