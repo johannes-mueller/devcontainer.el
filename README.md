@@ -159,3 +159,27 @@ At this stage of development it would be great if you share your thoughts on
 the [discussion
 page](https://github.com/johannes-mueller/devcontainer.el/discussions/).  If
 you have something more concrete, you can for sure also file an issue.
+
+
+## Development
+
+This package uses unit tests defined by Emacs' built in
+[ERT](https://www.gnu.org/software/emacs/manual/html_mono/ert.html) testing
+framework. An easy way to run the tests is
+[ert-runner.el](https://github.com/rejeep/ert-runner.el). To run the test suite
+from the command line simply
+
+* Install [Cask](https://github.com/cask/cask) on your system
+* Open a shell in the repo's root directory
+* Install the rependencies using
+```
+$ cask install
+```
+* Run the test suite using
+```
+$ cask exec ert-runner
+```
+
+If you want to run the tests interactively from within emacs, you might want to
+take a look at
+[test-cockpit.el](https://github.com/johannes-mueller/test-cockpit.el).
