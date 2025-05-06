@@ -534,10 +534,10 @@ are not yet supported."
   "Retrieve the defined remote environment of current project's devcontainer as alist if it's up."
   (when-let* ((metadata (devcontainer--container-metadata)))
     (mapcar (lambda (elt)
-              (cons (car elt) (devcontainer--interpolat-variable (cdr elt))))
+              (cons (car elt) (devcontainer--interpolate-variable (cdr elt))))
             (alist-get 'remoteEnv metadata))))
 
-(defun devcontainer--interpolat-variable (string)
+(defun devcontainer--interpolate-variable (string)
   "Interpolate devcontainer variable into STRING."
   (replace-regexp-in-string
    "\\${\\([[:alpha:]]+\\)\\(:[[:alpha:]]+\\)?}"
@@ -563,7 +563,7 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
                         (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
                         (devcontainer--bust-json-comments-in-buffer)
                         (json-parse-string (buffer-string)))))
-    (devcontainer--interpolat-variable (file-name-as-directory (gethash "workspaceFolder" config "/")))))
+    (devcontainer--interpolate-variable (file-name-as-directory (gethash "workspaceFolder" config "/")))))
 
 (defun devcontainer--bust-json-comments-in-buffer ()
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
