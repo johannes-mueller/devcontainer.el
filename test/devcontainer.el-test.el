@@ -616,8 +616,13 @@
     (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
       (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
 
-(ert-deftest devcontainer--tramp-dired-non-interactive ()
+(ert-deftest devcontainer--tramp-dired-non-interactive-docker-default ()
   (mocker-let ((dired (path) ((:input '("/docker:user_name@container_name:/workdir/path")))))
+    (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
+
+(ert-deftest devcontainer--tramp-dired-non-interactive-podman ()
+  (setq devcontainer-engine 'podman)
+  (mocker-let ((dired (path) ((:input '("/podman:user_name@container_name:/workdir/path")))))
     (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-not-running ()

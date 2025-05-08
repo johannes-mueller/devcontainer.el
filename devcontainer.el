@@ -593,7 +593,7 @@ a compatible way to `devcontainer-post-startup-hook'.
    (if (not (devcontainer-is-up))
        (user-error "No running devcontainer for current project")
      (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
-  (let ((vec (format "/docker:%s@%s:%s" remote-user container-name remote-workdir)))
+  (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user container-name remote-workdir)))
     (dired vec)))
 
 (provide 'devcontainer)
