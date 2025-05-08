@@ -156,8 +156,8 @@ Otherwise, raise an `error'."
     (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
       (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
-(defun devcontainer-is-up ()
-  "Check if the devcontainer of the current project is running."
+(defun devcontainer-up-container-id ()
+  "Return the devcontainer's container id if the container is up otherwise nil."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed-p)
        (let ((output (devcontainer--call-engine-string-sync
@@ -213,7 +213,7 @@ devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-is-up)
+    (when (devcontainer-up-container-id)
       (devcontainer-kill-container))
     (devcontainer-up show-buffer)))
 
@@ -233,7 +233,7 @@ of the devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-is-up)
+    (when (devcontainer-up-container-id)
       (devcontainer-remove-container))
     (devcontainer-remove-image)
     (devcontainer-up show-buffer)))
@@ -242,7 +242,7 @@ of the devcontainer stack simply remain alive."
 (defun devcontainer-kill-container ()
   "Kill the primary docker container of the current project."
   (interactive)
-  (when-let ((container-id (or (devcontainer-is-up)
+  (when-let ((container-id (or (devcontainer-up-container-id)
                                (user-error "No container running"))))
     (devcontainer--call-engine-string-sync "container"
                                            "kill"
@@ -359,7 +359,7 @@ programs from being executed inside the devcontainer."
 
 (defun devcontainer-vterm ()
   (interactive)
-  (if (devcontainer-is-up)
+  (if (devcontainer-up-container-id)
       (let ((vterm-shell (format "devcontainer exec %s bash" (devcontainer--workspace-folder))))
         (vterm))
     (user-error "devcontainer not running")))
@@ -370,12 +370,12 @@ programs from being executed inside the devcontainer."
 If `devcontainer-mode' is on and your current project has a devcontainer
 up and running, the string `devcontainer exec --workspace-folder
 $PROJECT_ROOT ' is returned, otherwise `nil'"
-  (when (and devcontainer-mode (devcontainer-is-up))
+  (when (and devcontainer-mode (devcontainer-up-container-id))
     (format "devcontainer exec %s " (devcontainer--workspace-folder))))
 
 (defun devcontainer-ansi-term ()
   (interactive)
-  (if (devcontainer-is-up)
+  (if (devcontainer-up-container-id)
       (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=xterm-256color\" bash"))))
 
 (defun devcontainer--workspace-folder ()
@@ -407,8 +407,8 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
 
 Note that it happens implicitly by calling the relevant functions to
 update the cache."
-       (devcontainer-is-up))
   (and (devcontainer-container-needed-p)
+       (devcontainer-up-container-id))
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer-advisable ()
@@ -422,7 +422,7 @@ update the cache."
   "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
   (if (and (devcontainer-advisable)
            (devcontainer--devcontainerize-command command))
-      (if-let ((container-id (devcontainer-is-up)))
+      (if-let ((container-id (devcontainer-up-container-id)))
           (format "%s exec --workdir %s %s %s %s"
                   devcontainer-engine
                   (devcontainer-remote-workdir)
@@ -457,7 +457,7 @@ update the cache."
     ["Restart and rebuild" devcontainer-rebuild-restart
      :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
                   (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]
-    ["Kill" devcontainer-kill-container :active (equal (devcontainer--current-project-state) 'devcontainer-is-up)]
+    ["Kill" devcontainer-kill-container :active (equal (devcontainer--current-project-state) 'devcontainer-up-container-id)]
     ["Remove container" devcontainer-remove-container
      :active (and (not (equal (devcontainer--current-project-state) 'no-devcontainer))
                   (not (equal (devcontainer--current-project-state) 'devcontainer-is-needed))
@@ -490,7 +490,7 @@ TODO: multiple parallel executions (maybe also in different containers)
 are not yet supported."
   (interactive
    (list (read-from-minibuffer "Command: " (car devcontainer--command-history) nil nil '(devcontainer--command-history . 1))))
-  (when (not (devcontainer-is-up))
+  (when (not (devcontainer-up-container-id))
     (user-error "devcontainer not running"))
   (let* ((container-id (devcontainer-container-id))
          (cmd-args (append `("exec" "--workspace-folder" ,(devcontainer--root))
@@ -593,7 +593,7 @@ a compatible way to `devcontainer-post-startup-hook'.
 * REMOTE-USER – a string of the remote user name
 * REMOTE-WORKDIR – the workdir path in the container."
   (interactive
-   (if (not (devcontainer-is-up))
+   (if (not (devcontainer-up-container-id))
        (user-error "No running devcontainer for current project")
      (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
   (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user container-name remote-workdir)))

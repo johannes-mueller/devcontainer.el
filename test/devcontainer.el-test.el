@@ -112,7 +112,7 @@
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
                  "--format={{.ID}}")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
-        (should-not (devcontainer-is-up))
+        (should-not (devcontainer-up-container-id))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
 
 (ert-deftest container-id-container-running ()
@@ -121,19 +121,19 @@
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
                  "--format={{.ID}}")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output "abc" :occur 1))))
-        (should (equal (devcontainer-is-up) "abc"))
+        (should (equal (devcontainer-up-container-id) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
 
 (ert-deftest container-id-container-starting ()
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-starting))))
     (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
-      (should-not (devcontainer-is-up))
+      (should-not (devcontainer-up-container-id))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-starting)))))))
 
 (ert-deftest container-id-container-failed ()
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))
     (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
-      (should-not (devcontainer-is-up))
+      (should-not (devcontainer-up-container-id))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 (ert-deftest container-needed-container-failed ()
@@ -282,7 +282,7 @@
               (setenv "HOME" home-dir)))))))
 
 (ert-deftest kill-container-non-existent ()
-  (mocker-let ((devcontainer-is-up () ((:output nil)))
+  (mocker-let ((devcontainer-up-container-id () ((:output nil)))
                (user-error (msg) ((:input '("No container running")))))
     (devcontainer-kill-container)))
 
@@ -339,13 +339,13 @@
 
 (ert-deftest restart-container-not-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-is-up () ((:output nil)))
+    (mocker-let ((devcontainer-up-container-id () ((:output nil)))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-restart))))
 
 (ert-deftest restart-container-is-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-is-up () ((:output t)))
+    (mocker-let ((devcontainer-up-container-id () ((:output t)))
                  (devcontainer-kill-container () ((:output t)))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-restart))))
@@ -357,14 +357,14 @@
 
 (ert-deftest rebuild-and-restart-container-not-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-is-up () ((:output nil)))
+    (mocker-let ((devcontainer-up-container-id () ((:output nil)))
                  (devcontainer-remove-image () ((:output t)))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-rebuild-and-restart))))
 
 (ert-deftest rebuild-and-restart-container-is-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-is-up () ((:output t)))
+    (mocker-let ((devcontainer-up-container-id () ((:output t)))
                  (devcontainer-remove-container () ((:output t)))
                  (devcontainer-remove-image () ((:output t)))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
@@ -376,17 +376,17 @@
 
 (ert-deftest devcontainer-prefix-mode-on-no-running-devcontainer ()
   (devcontainer-mode 1)
-  (mocker-let ((devcontainer-is-up () ((:output nil))))
+  (mocker-let ((devcontainer-up-container-id () ((:output nil))))
     (should-not (devcontainer-command-prefix))))
 
 (ert-deftest devcontainer-prefix-mode-off-with-running-devcontainer ()
   (devcontainer-mode -1)
-  (mocker-let ((devcontainer-is-up () ((:occur 0))))
+  (mocker-let ((devcontainer-up-container-id () ((:occur 0))))
     (should-not (devcontainer-command-prefix))))
 
 (ert-deftest devcontainer-prefix-mode-on-with-running-devcontainer ()
   (devcontainer-mode 1)
-  (mocker-let ((devcontainer-is-up () ((:output t)))
+  (mocker-let ((devcontainer-up-container-id () ((:output t)))
                (project-current () ((:output '(foo . "~/foo/bar/") :min-occur 1)))
                (project-root (project) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/"))))
     (let ((home-dir (getenv "HOME")))
@@ -399,7 +399,7 @@
 (ert-deftest compile-start-advice-devcontainer-down ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-is-up () ((:output nil))))
+    (mocker-let ((devcontainer-up-container-id () ((:output nil))))
       (should-error (devcontainer--compile-start-advice (lambda (&rest _) t) "my-command foo")))))
 
 (ert-deftest compilation-start-advised ()
@@ -438,7 +438,7 @@
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
                    (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin") ("FOO" . "to be masked")))))
-                   (devcontainer-is-up () ((:output "cdefab"))))
+                   (devcontainer-up-container-id () ((:output "cdefab"))))
         (should (devcontainer-advisable))
         (should (equal (devcontainer-advise-command "my-command foo") cmd))
         (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
@@ -451,7 +451,7 @@
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
                    (devcontainer-remote-environment () ((:output '(("PATH" . "/usr/bin")))))
-                   (devcontainer-is-up () ((:output "abcdef"))))
+                   (devcontainer-up-container-id () ((:output "abcdef"))))
         (should (equal (devcontainer-advise-command "grep foo") cmd))
         (devcontainer--compile-start-advice #'my-compile-fun "grep foo")))))
 
@@ -464,7 +464,7 @@
        (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                     (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
                     (devcontainer-remote-environment () ((:output '(("PATH" . "/usr/bin")))))
-                    (devcontainer-is-up () ((:output "abcdef"))))
+                    (devcontainer-up-container-id () ((:output "abcdef"))))
          (should (equal (devcontainer-advise-command "grep foo") cmd))
          (devcontainer--compile-start-advice #'my-compile-fun "grep foo"))))))
 
@@ -639,11 +639,11 @@
      (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path"))))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-not-running ()
-  (mocker-let ((devcontainer-is-up () ((:output nil))))
+  (mocker-let ((devcontainer-up-container-id () ((:output nil))))
     (should-error (call-interactively #'devcontainer-tramp-dired))))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-is-running ()
-  (mocker-let ((devcontainer-is-up () ((:output t)))
+  (mocker-let ((devcontainer-up-container-id () ((:output t)))
                (devcontainer-container-name () ((:output "auto-container-name")))
                (devcontainer-remote-user () ((:output "auto-remote-user")))
                (devcontainer-remote-workdir () ((:output "/auto-remote-workdir")))
