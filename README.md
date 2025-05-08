@@ -95,13 +95,34 @@ available and if the command modification is advisable.
 (funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
 ```
 
-### Configuration
+### Using TRAMP
 
-As of now, there is not much configuration to be done.
+An alternative way of using the package is to edit the files inside the
+container itself using Emacs' builtin
+[TRAMP](https://www.gnu.org/software/tramp/) facility. There are pros and cons
+to it.  In order to use it, you can let `devcontainer-mode` deactivated and use
+the function `devcontainer-tramp-dired` to open a `dired` window inside the
+container. Then you can open files of your project inside the container.
+
+If `devcontainer-mode` is activated it refrains from advising `compile`
+functions, if the current buffer is a file inside the devcontainer.
+
+
+## Configuration
+
+The following things are customizable at this point:
 
 * `devcontainer-execute-outside-container` – a list of programs, not to be
   executed inside the container but on the host system. Used for things like
   `grep`.
+
+* `devcontainer-post-startup-hook` – a hook variable that can provide functions
+  that are called after the container has been started. They take a couple of
+  arguments. See the functions' documentation for details.
+
+  One example use case is to hook in the function `devcontainer-tramp-dired` to
+  open a `dired` window inside the container right after the start of the
+  container.
 
 
 ## Installation
