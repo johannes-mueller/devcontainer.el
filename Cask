@@ -3,6 +3,7 @@
 
 (depends-on "project")
 (depends-on "ansi-color")
+(depends-on "tramp")
 ;(package-file "TODO")
 
 (development

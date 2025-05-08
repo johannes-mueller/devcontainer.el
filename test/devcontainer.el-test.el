@@ -56,7 +56,8 @@
 
 (ert-deftest container-id-no-container-defined ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
-    (should-not (devcontainer-container-id))))
+    (should-not (devcontainer-container-id))
+    (should-not (devcontainer-container-name))))
 
 (ert-deftest container-id-no-container-set-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -70,7 +71,10 @@
                         "--all=true")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
                                                                         (:input cmd-second :output nil))))
-      (should-not (devcontainer-container-id))))))
+        (should-not (devcontainer-container-id)))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output nil))))
+        (should-not (devcontainer-container-name))))))
 
 (ert-deftest container-id-container-set-up-and-not-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -81,10 +85,17 @@
           (cmd-second `("container" "ls"
                         ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
                         "--format={{.ID}}"
-                        "--all=true")))
+                        "--all=true"))
+          (cmd-name `("container" "inspect"
+                      "abc"
+                      "--format={{.Name}}")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
                                                                         (:input cmd-second :output "abc"))))
-        (should (equal (devcontainer-container-id) "abc"))))))
+        (should (equal (devcontainer-container-id) "abc")))
+      (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd-first :output nil)
+                                                                        (:input cmd-second :output "abc")
+                                                                        (:input cmd-name :output "/container-name"))))
+        (should (equal (devcontainer-container-name) "container-name"))))))
 
 (ert-deftest container-id-container-set-up-and-running ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -458,8 +469,18 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd "/usr/bin/rg foo")
           (devcontainer-execute-outside-container '("grep" "rg")))
-    (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
-      (devcontainer--compile-start-advice #'my-compile-fun "/usr/bin/rg foo")))))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd)))))
+        (devcontainer--compile-start-advice #'my-compile-fun "/usr/bin/rg foo")))))
+
+(ert-deftest compilation-start-no-advice-if-tramp-path ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd "foo-command"))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+                   (tramp-tramp-file-p (path) ((:input `(,project-root-dir) :output t))))
+        (should-not (devcontainer-advisable))
+        (should (equal (devcontainer-advise-command cmd) cmd))
+        (devcontainer--compile-start-advice #'my-compile-fun cmd)))))
 
 (ert-deftest lighter-not-on-project-no-project-info ()
   (let ((devcontainer--project-info nil))
@@ -595,6 +616,21 @@
     (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
       (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
 
+(ert-deftest devcontainer--tramp-dired-non-interactive ()
+  (mocker-let ((dired (path) ((:input '("/docker:user_name@container_name:/workdir/path")))))
+    (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
+
+(ert-deftest devcontainer--tramp-dired-devcontainer-not-running ()
+  (mocker-let ((devcontainer-is-up () ((:output nil))))
+    (should-error (call-interactively #'devcontainer-tramp-dired))))
+
+(ert-deftest devcontainer--tramp-dired-devcontainer-is-running ()
+  (mocker-let ((devcontainer-is-up () ((:output t)))
+               (devcontainer-container-name () ((:output "auto-container-name")))
+               (devcontainer-remote-user () ((:output "auto-remote-user")))
+               (devcontainer-remote-workdir () ((:output "/auto-remote-workdir")))
+               (dired (path) ((:input '("/docker:auto-remote-user@auto-container-name:/auto-remote-workdir")))))
+    (call-interactively #'devcontainer-tramp-dired)))
 
 (ert-deftest devcontainer--call-engine-string-sync-null-result ()
   (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
@@ -607,6 +643,5 @@
 (ert-deftest devcontainer--call-engine-string-sync-one-line-result ()
   (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
     (should (equal (devcontainer--call-engine-string-sync "one-line" "foobar") "foobar"))))
-
 
 ;;; devcontainer.el-test.el ends here

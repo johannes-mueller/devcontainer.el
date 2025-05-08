@@ -18,6 +18,7 @@
 (require 'ansi-color)
 (require 'comint)
 (require 'tramp-container)
+(require 'tramp)
 
 (defcustom devcontainer-execute-outside-container '("grep" "rg" "ag")
   "A list of programs that should not be executed inside the devcontainer."
@@ -132,6 +133,14 @@ Otherwise, raise an `error'."
          (or
           (funcall get-ctr-id nil)
           (funcall get-ctr-id t)))))
+
+(defun devcontainer-container-name ()
+  "Determine the name of the primary docker container of the current project."
+  (when-let* ((container-id (devcontainer-container-id)))
+    (thread-first
+      (devcontainer--call-engine-string-sync "container" "inspect" container-id "--format={{.Name}}")
+      (string-trim-right)
+      (string-trim-left "/"))))
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
@@ -406,6 +415,7 @@ update the cache."
   "Return non-nil if it is advisable to run a command inside the container."
   (and devcontainer-mode
        (project-current)
+       (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed)))
 
 (defun devcontainer-advise-command (command)
@@ -568,6 +578,23 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
 (defun devcontainer--bust-json-comments-in-buffer ()
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
     (replace-match "\\1\\2")))
+
+(defun devcontainer-tramp-dired (_container-id container-name remote-user remote-workdir)
+  "Open a Dired window inside devcontainer's working folder.
+
+When called interactively, all the arguments are determined
+automatically.  The arguments for the non-interactive call are set up in
+a compatible way to `devcontainer-post-startup-hook'.
+
+* CONTAINER-NAME – a string representing the container-name
+* REMOTE-USER – a string of the remote user name
+* REMOTE-WORKDIR – the workdir path in the container."
+  (interactive
+   (if (not (devcontainer-is-up))
+       (user-error "No running devcontainer for current project")
+     (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
+  (let ((vec (format "/docker:%s@%s:%s" remote-user container-name remote-workdir)))
+    (dired vec)))
 
 (provide 'devcontainer)
 
