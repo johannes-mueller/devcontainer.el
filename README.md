@@ -13,17 +13,6 @@ and forwards all your `compile` commands into the devcontainer by advising
 (parts of your) software, all will be executed inside the devcontainer.
 
 
-## Status
-
-Development started a couple of weeks ago.  Since then, my experiences in
-practice are positive.  So I would like to encourage anyone interested in this
-to already use it and report back you experiences in the
-[issues](https://github.com/johannes-mueller/devcontainer.el/issues)
-
-Probably there are features missing.  So also feel free to discuss your wishes
-and ideas.
-
-
 ## Motivation
 
 ### What are devcontainers?
@@ -60,6 +49,18 @@ runs the compilation command inside the container.
 Usually you would mount your local working directory into your devcontainer.
 Then you edit files just like without using devcontainer.  Then, launching any
 kind of `compile` command, it is actually performed inside your devcontainer.
+
+
+## Status
+
+Development started a couple of months ago.  Since then it has been of big help
+to me in my day job programming.  With my usual workflows, the packages just
+does its job and otherwise stays out of my way.  As I don't tend to experiment
+that much with edge cases, I might not be aware of caveats, when different
+workflows are used.  This might especially the case if you are using `podman`
+as container engine rather than `docker`.
+
+If you experience any issues, please report them back in the issue tracker.
 
 
 ## Usage
@@ -124,6 +125,8 @@ The following things are customizable at this point:
   open a `dired` window inside the container right after the start of the
   container.
 
+* `devcontainer-engine` – the container engine you want to use. Can be either
+  `'docker` (default) or `'podman`
 
 ## Installation
 
