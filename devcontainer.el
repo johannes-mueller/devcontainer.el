@@ -108,7 +108,7 @@ Otherwise, raise an `error'."
     (append (seq-filter #'file-exists-p '(".devcontainer/devcontainer.json" ".devcontainer.json"))
             (seq-sort #'string< (file-expand-wildcards ".devcontainer/*/devcontainer.json")))))
 
-(defun devcontainer-container-needed ()
+(defun devcontainer-container-needed-p ()
   "Dertermine if the current project needs (i.e. defines) a devcontainer."
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
@@ -129,7 +129,7 @@ Otherwise, raise an `error'."
              (directory-file-name (devcontainer--root)))
             "--format={{.ID}}"
             (format "--all=%s" (if all "true" "false"))))))
-    (and (devcontainer-container-needed)
+    (and (devcontainer-container-needed-p)
          (or
           (funcall get-ctr-id nil)
           (funcall get-ctr-id t)))))
@@ -144,7 +144,7 @@ Otherwise, raise an `error'."
 
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
-  (and (devcontainer-container-needed)
+  (and (devcontainer-container-needed-p)
        (devcontainer--call-engine-string-sync
         "images"
         "--quiet"
@@ -152,14 +152,14 @@ Otherwise, raise an `error'."
 
 (defun devcontainer--image-repo-name ()
   "Retrieve the current project's devcontainer's docker image name."
-  (when (devcontainer-container-needed)
+  (when (devcontainer-container-needed-p)
     (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
       (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
 
 (defun devcontainer-is-up ()
   "Check if the devcontainer of the current project is running."
   (and (not (devcontainer--starting-or-failed))
-       (devcontainer-container-needed)
+       (devcontainer-container-needed-p)
        (let ((output (devcontainer--call-engine-string-sync
                       "container"
                       "ls"
@@ -178,7 +178,7 @@ Otherwise, raise an `error'."
 If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
   (interactive
    (list (called-interactively-p 'interactive)))
-  (if (and (if (devcontainer-container-needed) t
+  (if (and (if (devcontainer-container-needed-p) t
              (message "Project does not use a devcontainer.")
              (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer--find-executable)
@@ -211,7 +211,7 @@ The primary docker is killed before restart.  Ohter containers of the
 devcontainer stack simply remain alive."
   (interactive
    (list (called-interactively-p 'interactive)))
-  (when (or (devcontainer-container-needed)
+  (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
     (when (devcontainer-is-up)
       (devcontainer-kill-container))
@@ -231,7 +231,7 @@ The primary docker container is killed before restart.  Ohter containers
 of the devcontainer stack simply remain alive."
   (interactive
    (list (called-interactively-p 'interactive)))
-  (when (or (devcontainer-container-needed)
+  (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
     (when (devcontainer-is-up)
       (devcontainer-remove-container))
@@ -269,7 +269,7 @@ of the devcontainer stack simply remain alive."
 (defun devcontainer-remove-image ()
   "Remove the image of the primary docker container of the current project."
   (interactive)
-  (when-let* (((or (devcontainer-container-needed)
+  (when-let* (((or (devcontainer-container-needed-p)
                    (user-error "No devcontainer for current project")))
               (image-id (devcontainer-image-id)))
     (when-let* ((container-id (devcontainer-container-id)))
@@ -407,8 +407,8 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
 
 Note that it happens implicitly by calling the relevant functions to
 update the cache."
-  (and (devcontainer-container-needed)
        (devcontainer-is-up))
+  (and (devcontainer-container-needed-p)
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
 (defun devcontainer-advisable ()
@@ -416,7 +416,7 @@ update the cache."
   (and devcontainer-mode
        (project-current)
        (not (tramp-tramp-file-p (project-root (project-current))))
-       (devcontainer-container-needed)))
+       (devcontainer-container-needed-p)))
 
 (defun devcontainer-advise-command (command)
   "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."

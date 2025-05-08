@@ -34,24 +34,24 @@
 
 (ert-deftest container-is-needed-not-known ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (should (devcontainer-container-needed))
+    (should (devcontainer-container-needed-p))
     (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-needed))))))
 
 (ert-deftest container-is-not-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
-    (should-not (devcontainer-container-needed))
+    (should-not (devcontainer-container-needed-p))
     (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer))))))
 
 (ert-deftest container-is-not-needed-already-known ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (let ((devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer))))
-      (should-not (devcontainer-container-needed))
+      (should-not (devcontainer-container-needed-p))
       (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . no-devcontainer)))))))
 
 (ert-deftest container-is-needed-already-known ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (let ((devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-needed))))
-      (should (devcontainer-container-needed))
+      (should (devcontainer-container-needed-p))
       (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-needed)))))))
 
 (ert-deftest container-id-no-container-defined ()
@@ -139,7 +139,7 @@
 (ert-deftest container-needed-container-failed ()
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))
     (mocker-let ((project-current () ((:output '(foo . "~/foo/bar/")))))
-      (should (devcontainer-container-needed))
+      (should (devcontainer-container-needed-p))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
 (ert-deftest container-invalidate-cache-in-project ()
@@ -269,7 +269,7 @@
                                                         ((:input cmd :output "8af87509ac80" :occur 1)
                                                          (:input '("container" "kill" "8af87509ac80"))
                                                          (:input cmd :output nil)))
-                 (devcontainer-container-needed () ((:output t)))
+                 (devcontainer-container-needed-p () ((:output t)))
                  (project-current () ((:output '(foo . "~/foo/bar/"))))
                  (project-root (prg) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/")))
                  (message (tmpl container-id) ((:input '("Killed container %s" "8af87509ac80")))))
@@ -302,20 +302,20 @@
     (devcontainer-remove-container)))
 
 (ert-deftest remove-image-non-existent-not-needed ()
-  (mocker-let ((devcontainer-container-needed () ((:output nil)))
+  (mocker-let ((devcontainer-container-needed-p () ((:output nil)))
                (user-error (msg) ((:input '("No devcontainer for current project")))))
     (devcontainer-remove-image)))
 
 
 (ert-deftest remove-image-non-existent-needed ()
-  (mocker-let ((devcontainer-container-needed () ((:output t)))
+  (mocker-let ((devcontainer-container-needed-p () ((:output t)))
                (devcontainer-image-id () ((:output nil)))
                (devcontainer--call-engine-string-sync (cmd) ((:occur 0))))
     (devcontainer-remove-image)))
 
 
 (ert-deftest remove-image-existent-no-container ()
-  (mocker-let ((devcontainer-container-needed () ((:output t)))
+  (mocker-let ((devcontainer-container-needed-p () ((:output t)))
                (devcontainer-container-id () ((:output nil)))
                (devcontainer-image-id () ((:output "d8f16cb43d9b")))
                (devcontainer-remove-container () ((:occur 0)))
@@ -324,7 +324,7 @@
     (devcontainer-remove-image)))
 
 (ert-deftest remove-image-existent-with-container ()
-  (mocker-let ((devcontainer-container-needed () ((:output t)))
+  (mocker-let ((devcontainer-container-needed-p () ((:output t)))
                (devcontainer-container-id () ((:output "abcdef")))
                (devcontainer-image-id () ((:output "d8f16cb43d9a")))
                (devcontainer-remove-container () ((:occur 1)))
