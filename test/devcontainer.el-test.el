@@ -443,7 +443,7 @@
         (should (equal (devcontainer-advise-command "my-command foo") cmd))
         (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
 
-(ert-deftest compilation-start-no-exclude-simple ()
+(ert-deftest compilation-start-no-exclude-simple-docker ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd "docker exec --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
@@ -454,6 +454,19 @@
                    (devcontainer-is-up () ((:output "abcdef"))))
         (should (equal (devcontainer-advise-command "grep foo") cmd))
         (devcontainer--compile-start-advice #'my-compile-fun "grep foo")))))
+
+(ert-deftest compilation-start-no-exclude-simple-podman ()
+  (devcontainer-mode 1)
+  (let ((devcontainer-engine 'podman))
+   (fixture-tmp-dir "test-repo-devcontainer"
+     (let ((cmd "podman exec --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
+           (devcontainer-execute-outside-container nil))
+       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+                    (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
+                    (devcontainer-remote-environment () ((:output '(("PATH" . "/usr/bin")))))
+                    (devcontainer-is-up () ((:output "abcdef"))))
+         (should (equal (devcontainer-advise-command "grep foo") cmd))
+         (devcontainer--compile-start-advice #'my-compile-fun "grep foo"))))))
 
 (ert-deftest compilation-start-exclude-simple ()
   (devcontainer-mode 1)
@@ -621,9 +634,9 @@
     (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
 
 (ert-deftest devcontainer--tramp-dired-non-interactive-podman ()
-  (setq devcontainer-engine 'podman)
-  (mocker-let ((dired (path) ((:input '("/podman:user_name@container_name:/workdir/path")))))
-    (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
+  (let ((devcontainer-engine 'podman))
+    (mocker-let ((dired (path) ((:input '("/podman:user_name@container_name:/workdir/path")))))
+     (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path"))))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-not-running ()
   (mocker-let ((devcontainer-is-up () ((:output nil))))

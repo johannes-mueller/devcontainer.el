@@ -423,7 +423,8 @@ update the cache."
   (if (and (devcontainer-advisable)
            (devcontainer--devcontainerize-command command))
       (if-let ((container-id (devcontainer-is-up)))
-          (format "docker exec --workdir %s %s %s %s"
+          (format "%s exec --workdir %s %s %s %s"
+                  devcontainer-engine
                   (devcontainer-remote-workdir)
                   (string-join (mapcar (lambda (var) (if var
                                                          (format "%s=%s" (car var) (cdr var))
