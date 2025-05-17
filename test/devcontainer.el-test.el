@@ -434,10 +434,10 @@
 (ert-deftest compile-start-advice-devcontainer-up ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd "docker exec --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin cdefab my-command foo"))
+    (let ((cmd "docker exec --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab my-command foo"))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
-                   (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin")))))
+                   (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin") ("FOO" . "to be masked")))))
                    (devcontainer-is-up () ((:output "cdefab"))))
         (should (devcontainer-advisable))
         (should (equal (devcontainer-advise-command "my-command foo") cmd))

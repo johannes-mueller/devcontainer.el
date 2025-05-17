@@ -427,7 +427,9 @@ update the cache."
                   devcontainer-engine
                   (devcontainer-remote-workdir)
                   (string-join (mapcar (lambda (var) (if var
-                                                         (format "%s=%s" (car var) (cdr var))
+                                                         (format "%s=%s"
+                                                                 (car var)
+                                                                 (shell-quote-argument (cdr var)))
                                                        ""))
                                        (cons nil (devcontainer-remote-environment)))
                                " --env ")
