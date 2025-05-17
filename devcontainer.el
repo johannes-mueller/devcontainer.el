@@ -396,6 +396,22 @@ $PROJECT_ROOT ' is returned, otherwise `nil'"
   (when (and devcontainer-mode (devcontainer-up-container-id))
     (format "devcontainer exec %s " (devcontainer--workspace-folder))))
 
+(defun devcontainer-term ()
+  "Start a shell inside the container.
+
+There are the following customization options:
+
+* `devcontainer-term-function' to determine the terminal emulator
+  (defaults to `ansi-term').
+
+* `devcontainer-term-shell' – the shell command to be used inside the container
+  (defaults to `bash').
+
+* `devcontainer-term-environment' to add custom modifications to the environment."
+  (interactive)
+  (when (devcontainer-up-container-id)
+    (funcall devcontainer-term-function (concat (devcontainer-advice 'in-terminal) " " devcontainer-term-shell))))
+
 (defun devcontainer-ansi-term ()
   (interactive)
   (if (devcontainer-up-container-id)
@@ -441,18 +457,23 @@ update the cache."
        (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed-p)))
 
-(defun devcontainer-advice ()
-  "Determine the prefix that is to be used to run a command inside the container."
+(defun devcontainer-advice (&optional in-terminal)
+  "Determine the prefix that is to be used to run a command inside the container.
+
+If IN-TERMINAL is non nil, the \"-it\" flag is set."
   (when-let ((container-id (devcontainer-up-container-id)))
-    (format "%s exec --workdir %s %s %s"
+    (format "%s exec %s --workdir %s %s %s"
             devcontainer-engine
+            (if in-terminal "-it" "")
             (devcontainer-remote-workdir)
             (string-join (mapcar (lambda (var) (if var
                                                    (format "%s=%s"
                                                            (car var)
                                                            (shell-quote-argument (cdr var)))
                                                  ""))
-                                 (cons nil (devcontainer-remote-environment)))
+                                 (cons nil (append (devcontainer-remote-environment)
+                                                   (when in-terminal devcontainer-term-environment)
+                                                   )))
                          " --env ")
             container-id)))
 
@@ -462,7 +483,7 @@ update the cache."
            (devcontainer--devcontainerize-command-p command))
       (if-let ((advice (devcontainer-advice)))
           (concat advice " " command)
-        (user-error "The devcontainer not running.  Please start it first."))
+        (user-error "The devcontainer not running.  Please start it first"))
     command))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)

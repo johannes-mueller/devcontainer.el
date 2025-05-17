@@ -432,23 +432,38 @@
       (should (equal (devcontainer-advise-command "foo-command") "foo-command"))
       (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
 
-(ert-deftest compile-start-advice-devcontainer-up ()
+(ert-deftest compile-start-advice-devcontainer-up-no-term-environment ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((advice "docker exec --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab"))
+    (let ((advice "docker exec  --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab"))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,(concat advice " my-command foo")))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
                    (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin") ("FOO" . "to be masked")))))
                    (devcontainer-up-container-id () ((:output "cdefab"))))
         (should (devcontainer-advisable-p))
         (should (equal (devcontainer-advice) advice))
+        (should (equal (devcontainer-advice 'in-terminal)
+                       "docker exec -it --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab"))
         (should (equal (devcontainer-advise-command "my-command foo") (concat advice " my-command foo")))
         (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
+
+(ert-deftest devcontainer-advice-devcontainer-up-with-term-environment ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((devcontainer-term-environment '(("FOO" . "foo") ("BAR" . "bar bar")))
+          (advice "docker exec  --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin cdefab"))
+      (mocker-let ((devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
+                   (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin")))))
+                   (devcontainer-up-container-id () ((:output "cdefab"))))
+        (should (devcontainer-advisable-p))
+        (should (equal (devcontainer-advice) advice))
+        (should (equal (devcontainer-advice 'in-terminal)
+                       "docker exec -it --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=foo --env BAR=bar\\ bar cdefab"))))))
 
 (ert-deftest compilation-start-no-exclude-simple-docker ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd "docker exec --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
+    (let ((cmd "docker exec  --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
           (devcontainer-execute-outside-container nil))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
@@ -461,7 +476,7 @@
   (devcontainer-mode 1)
   (let ((devcontainer-engine 'podman))
    (fixture-tmp-dir "test-repo-devcontainer"
-     (let ((cmd "podman exec --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
+     (let ((cmd "podman exec  --workdir /workspaces/project/  --env PATH=/usr/bin abcdef grep foo")
            (devcontainer-execute-outside-container nil))
        (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                     (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
@@ -663,5 +678,25 @@
 (ert-deftest devcontainer--call-engine-string-sync-one-line-result ()
   (mocker-let ((devcontainer--docker-path () ((:output (concat default-directory "test/docker-fake.sh")))))
     (should (equal (devcontainer--call-engine-string-sync "one-line" "foobar") "foobar"))))
+
+(ert-deftest devcontainer--term-default-term-and-shell ()
+  (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
+               (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+               (ansi-term (cmd) ((:input '("docker exec -it abcd bash")))))
+    (devcontainer-term)))
+
+(ert-deftest devcontainer--term-other-term-default-shell ()
+  (let ((devcontainer-term-function #'some-function))
+    (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
+                 (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+                 (some-function (cmd) ((:input '("docker exec -it abcd bash")))))
+     (devcontainer-term))))
+
+(ert-deftest devcontainer--term-default-term-and-zsh ()
+  (let ((devcontainer-term-shell "zsh"))
+    (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
+                (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+                (ansi-term (cmd) ((:input '("docker exec -it abcd zsh")))))
+     (devcontainer-term))))
 
 ;;; devcontainer.el-test.el ends here
