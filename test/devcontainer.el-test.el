@@ -428,19 +428,21 @@
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (mocker-let ((my-compile-fun (command &rest rest) ((:input '("my-command foo")))))
       (should-not (devcontainer-advisable-p))
+      (should-not (devcontainer-advice))
       (should (equal (devcontainer-advise-command "foo-command") "foo-command"))
       (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
 
 (ert-deftest compile-start-advice-devcontainer-up ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((cmd "docker exec --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab my-command foo"))
-      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+    (let ((advice "docker exec --workdir /workspaces/the-project/  --env PATH=/home/vscode/bin --env FOO=to\\ be\\ masked cdefab"))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,(concat advice " my-command foo")))))
                    (devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
                    (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin") ("FOO" . "to be masked")))))
                    (devcontainer-up-container-id () ((:output "cdefab"))))
         (should (devcontainer-advisable-p))
-        (should (equal (devcontainer-advise-command "my-command foo") cmd))
+        (should (equal (devcontainer-advice) advice))
+        (should (equal (devcontainer-advise-command "my-command foo") (concat advice " my-command foo")))
         (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
 
 (ert-deftest compilation-start-no-exclude-simple-docker ()

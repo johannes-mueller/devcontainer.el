@@ -441,23 +441,27 @@ update the cache."
        (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed-p)))
 
+(defun devcontainer-advice ()
+  "Determine the prefix that is to be used to run a command inside the container."
+  (when-let ((container-id (devcontainer-up-container-id)))
+    (format "%s exec --workdir %s %s %s"
+            devcontainer-engine
+            (devcontainer-remote-workdir)
+            (string-join (mapcar (lambda (var) (if var
+                                                   (format "%s=%s"
+                                                           (car var)
+                                                           (shell-quote-argument (cdr var)))
+                                                 ""))
+                                 (cons nil (devcontainer-remote-environment)))
+                         " --env ")
+            container-id)))
+
 (defun devcontainer-advise-command (command)
-  "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
+  "Prepend COMMAND with to run inside the container if possible."
   (if (and (devcontainer-advisable-p)
-           (devcontainer--devcontainerize-command command))
-      (if-let ((container-id (devcontainer-up-container-id)))
-          (format "%s exec --workdir %s %s %s %s"
-                  devcontainer-engine
-                  (devcontainer-remote-workdir)
-                  (string-join (mapcar (lambda (var) (if var
-                                                         (format "%s=%s"
-                                                                 (car var)
-                                                                 (shell-quote-argument (cdr var)))
-                                                       ""))
-                                       (cons nil (devcontainer-remote-environment)))
-                               " --env ")
-                  container-id
-                  command)
+           (devcontainer--devcontainerize-command-p command))
+      (if-let ((advice (devcontainer-advice)))
+          (concat advice " " command)
         (user-error "The devcontainer not running.  Please start it first."))
     command))
 
@@ -465,7 +469,8 @@ update the cache."
   (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
 
-(defun devcontainer--devcontainerize-command (command)
+(defun devcontainer--devcontainerize-command-p (command)
+  "Return t if COMMAND is to be run inside the container, i.e. not excluded by config."
   (not (member (car (split-string (file-name-base command) " "))
                devcontainer-execute-outside-container)))
 
