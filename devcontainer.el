@@ -380,26 +380,21 @@ programs from being executed inside the devcontainer."
       (user-error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")
       (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
 
-(defun devcontainer-vterm ()
+(defun devcontainer-term ()
+  "Start a shell inside the container.
+
+There are the following customization options:
+
+* `devcontainer-term-function' to determine the terminal emulator
+  (defaults to `ansi-term').
+
+* `devcontainer-term-shell' – the shell command to be used inside the container
+  (defaults to `bash').
+
+* `devcontainer-term-environment' to add custom modifications to the environment."
   (interactive)
-  (if (devcontainer-up-container-id)
-      (let ((vterm-shell (format "devcontainer exec %s bash" (devcontainer--workspace-folder))))
-        (vterm))
-    (user-error "devcontainer not running")))
-
-(defun devcontainer-command-prefix ()
-  "Provide the command prefix to execute a command inside the local devcontainer.
-
-If `devcontainer-mode' is on and your current project has a devcontainer
-up and running, the string `devcontainer exec --workspace-folder
-$PROJECT_ROOT ' is returned, otherwise `nil'"
-  (when (and devcontainer-mode (devcontainer-up-container-id))
-    (format "devcontainer exec %s " (devcontainer--workspace-folder))))
-
-(defun devcontainer-ansi-term ()
-  (interactive)
-  (if (devcontainer-up-container-id)
-      (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=xterm-256color\" bash"))))
+  (when (devcontainer-up-container-id)
+    (funcall devcontainer-term-function (concat (devcontainer-advice 'in-terminal) " " devcontainer-term-shell))))
 
 (defun devcontainer--workspace-folder ()
   "Retrieve the `--workspace-folder' switch for the current project root."
@@ -441,31 +436,41 @@ update the cache."
        (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed-p)))
 
+(defun devcontainer-advice (&optional in-terminal)
+  "Determine the prefix that is to be used to run a command inside the container.
+
+If IN-TERMINAL is non nil, the \"-it\" flag is set."
+  (when-let ((container-id (devcontainer-up-container-id)))
+    (format "%s exec %s --workdir %s %s %s"
+            devcontainer-engine
+            (if in-terminal "-it" "")
+            (devcontainer-remote-workdir)
+            (string-join (mapcar (lambda (var) (if var
+                                                   (format "%s=%s"
+                                                           (car var)
+                                                           (shell-quote-argument (cdr var)))
+                                                 ""))
+                                 (cons nil (append (devcontainer-remote-environment)
+                                                   (when in-terminal devcontainer-term-environment)
+                                                   )))
+                         " --env ")
+            container-id)))
+
 (defun devcontainer-advise-command (command)
-  "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
+  "Prepend COMMAND with to run inside the container if possible."
   (if (and (devcontainer-advisable-p)
-           (devcontainer--devcontainerize-command command))
-      (if-let ((container-id (devcontainer-up-container-id)))
-          (format "%s exec --workdir %s %s %s %s"
-                  devcontainer-engine
-                  (devcontainer-remote-workdir)
-                  (string-join (mapcar (lambda (var) (if var
-                                                         (format "%s=%s"
-                                                                 (car var)
-                                                                 (shell-quote-argument (cdr var)))
-                                                       ""))
-                                       (cons nil (devcontainer-remote-environment)))
-                               " --env ")
-                  container-id
-                  command)
-        (user-error "The devcontainer not running.  Please start it first."))
+           (devcontainer--devcontainerize-command-p command))
+      (if-let ((advice (devcontainer-advice)))
+          (concat advice " " command)
+        (user-error "The devcontainer not running.  Please start it first"))
     command))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
   (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
 
-(defun devcontainer--devcontainerize-command (command)
+(defun devcontainer--devcontainerize-command-p (command)
+  "Return t if COMMAND is to be run inside the container, i.e. not excluded by config."
   (not (member (car (split-string (file-name-base command) " "))
                devcontainer-execute-outside-container)))
 

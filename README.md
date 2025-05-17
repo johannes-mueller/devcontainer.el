@@ -87,6 +87,8 @@ If you experience any issues, please report them back in the issue tracker.
   devcontainer.
 * `devconatainer-kill-command` – kill the process launched by
   `devcontainer-execute-command`.
+* `devcontainer-term` – launch a terminal inside the container.
+
 
 ### Forwarding commands that are not using `compile`
 
@@ -132,6 +134,18 @@ The following things are customizable at this point:
 
 * `devcontainer-engine` – the container engine you want to use. Can be either
   `'docker` (default) or `'podman`
+
+* There are `devcontainer-term-command`, `devcontainer-term-shell` and
+  `devcontainer-term-environment` to customize the terminal launched by
+  `devcontainer-term`.
+
+> [!TIP]
+> If you experience weird control sequence output due to the bash prompt inside
+> the devcontainer, you can try modifying the `TERM` variable by
+>
+> ```elisp
+> (setq devcontainer-term-environment '(("TERM" . "xterm-256color")))
+> ```
 
 ## Installation
 
