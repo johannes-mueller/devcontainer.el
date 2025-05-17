@@ -380,22 +380,6 @@ programs from being executed inside the devcontainer."
       (user-error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")
       (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
 
-(defun devcontainer-vterm ()
-  (interactive)
-  (if (devcontainer-up-container-id)
-      (let ((vterm-shell (format "devcontainer exec %s bash" (devcontainer--workspace-folder))))
-        (vterm))
-    (user-error "devcontainer not running")))
-
-(defun devcontainer-command-prefix ()
-  "Provide the command prefix to execute a command inside the local devcontainer.
-
-If `devcontainer-mode' is on and your current project has a devcontainer
-up and running, the string `devcontainer exec --workspace-folder
-$PROJECT_ROOT ' is returned, otherwise `nil'"
-  (when (and devcontainer-mode (devcontainer-up-container-id))
-    (format "devcontainer exec %s " (devcontainer--workspace-folder))))
-
 (defun devcontainer-term ()
   "Start a shell inside the container.
 
@@ -411,11 +395,6 @@ There are the following customization options:
   (interactive)
   (when (devcontainer-up-container-id)
     (funcall devcontainer-term-function (concat (devcontainer-advice 'in-terminal) " " devcontainer-term-shell))))
-
-(defun devcontainer-ansi-term ()
-  (interactive)
-  (if (devcontainer-up-container-id)
-      (ansi-term (concat (devcontainer-command-prefix) "--remote-env=\"TERM=xterm-256color\" bash"))))
 
 (defun devcontainer--workspace-folder ()
   "Retrieve the `--workspace-folder' switch for the current project root."
