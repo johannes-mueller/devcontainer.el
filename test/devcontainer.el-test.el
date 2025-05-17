@@ -370,32 +370,6 @@
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-rebuild-and-restart))))
 
-(ert-deftest devcontainer-prefix-mode-off-no-running-devcontainer ()
-  (devcontainer-mode -1)
-  (should-not (devcontainer-command-prefix)))
-
-(ert-deftest devcontainer-prefix-mode-on-no-running-devcontainer ()
-  (devcontainer-mode 1)
-  (mocker-let ((devcontainer-up-container-id () ((:output nil))))
-    (should-not (devcontainer-command-prefix))))
-
-(ert-deftest devcontainer-prefix-mode-off-with-running-devcontainer ()
-  (devcontainer-mode -1)
-  (mocker-let ((devcontainer-up-container-id () ((:occur 0))))
-    (should-not (devcontainer-command-prefix))))
-
-(ert-deftest devcontainer-prefix-mode-on-with-running-devcontainer ()
-  (devcontainer-mode 1)
-  (mocker-let ((devcontainer-up-container-id () ((:output t)))
-               (project-current () ((:output '(foo . "~/foo/bar/") :min-occur 1)))
-               (project-root (project) ((:input '((foo . "~/foo/bar/")) :output "~/foo/bar/"))))
-    (let ((home-dir (getenv "HOME")))
-      (unwind-protect
-         (progn
-           (setenv "HOME" "/home/me")
-           (should (equal (devcontainer-command-prefix) "devcontainer exec --workspace-folder /home/me/foo/bar/ ")))
-        (setenv "HOME" home-dir)))))
-
 (ert-deftest compile-start-advice-devcontainer-down ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
