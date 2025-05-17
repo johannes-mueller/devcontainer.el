@@ -34,20 +34,43 @@ To specify the path of the podman/docker executable, customise
   :type '(choice (const podman)
                  (const docker)))
 
-(defvar devcontainer--project-info nil
-  "The data structure for state of the devcontainer's of all active projects.
+(defcustom devcontainer-term-shell "bash"
+  "The shell to be invoked when using `devcontainer-term'."
+  :group 'devcontainer
+  :type 'string)
 
-This is basically a cache that we need not to call the docker
-executable that often.")
+(defcustom devcontainer-term-environment nil
+  "An `alist' to define environment variables for `devcontainer-term'.
 
-(defvar devcontainer-post-startup-hook nil
+These variables are to be passed to the container's shell when a
+terminal session is started in the container using `devcontainer-term'.
+
+Hint: in order to prevent disturbing control sequences in the shell prompt
+you can add the element `(\"TERM\" . \"xterm-256color\")'"
+  :group 'devcontainer
+  :type '(alist :key-type string :value-type string))
+
+(defcustom devcontainer-term-function #'ansi-term
+  "The function to be used to start a terminal inside the container."
+  :group 'devcontainer
+  :type 'function)
+
+(defcustom devcontainer-post-startup-hook nil
   "Hook to be called after a devcontainer comes up.
 
 The hook functions should have four parameters:
 * container-id – a string representing the container id
 * container-name – a string representing the container-name
 * remote-user – a string of the remote user name
-* remote-workdir – the workdir path in the container.")
+* remote-workdir – the workdir path in the container."
+  :group 'devcontainer
+  :type 'hook)
+
+(defvar devcontainer--project-info nil
+  "The data structure for state of the devcontainer's of all active projects.
+
+This is basically a cache that we need not to call the docker
+executable that often.")
 
 (defun devcontainer--docker-path ()
   "Return the path of the Docker-compatible command to call.
