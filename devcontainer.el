@@ -411,7 +411,7 @@ update the cache."
        (devcontainer-up-container-id))
   (alist-get (project-current) devcontainer--project-info nil nil 'equal))
 
-(defun devcontainer-advisable ()
+(defun devcontainer-advisable-p ()
   "Return non-nil if it is advisable to run a command inside the container."
   (and devcontainer-mode
        (project-current)
@@ -420,7 +420,7 @@ update the cache."
 
 (defun devcontainer-advise-command (command)
   "Prepend COMMAND with `devcontainer exec --workspace-folder .' if advisable."
-  (if (and (devcontainer-advisable)
+  (if (and (devcontainer-advisable-p)
            (devcontainer--devcontainerize-command command))
       (if-let ((container-id (devcontainer-up-container-id)))
           (format "%s exec --workdir %s %s %s %s"

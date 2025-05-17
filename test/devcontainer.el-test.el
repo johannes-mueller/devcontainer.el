@@ -411,7 +411,7 @@
 (ert-deftest compile-start-advice-no-devcontainer-mode ()
   (devcontainer-mode -1)
   (mocker-let ((my-compile-fun (command &rest rest) ((:input '("my-command foo" mode name-function hight-light-regexp continue)))))
-    (should-not (devcontainer-advisable))
+    (should-not (devcontainer-advisable-p))
     (should (equal (devcontainer-advise-command "foo-command") "foo-command"))
     (devcontainer--compile-start-advice #'my-compile-fun "my-command foo" 'mode 'name-function 'hight-light-regexp 'continue)))
 
@@ -419,7 +419,7 @@
   (devcontainer-mode 1)
   (mocker-let ((project-current () ((:output nil)))
                (my-compile-fun (command &rest rest) ((:input '("my-command foo")))))
-    (should-not (devcontainer-advisable))
+    (should-not (devcontainer-advisable-p))
     (should (equal (devcontainer-advise-command "foo-command") "foo-command"))
     (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))
 
@@ -427,7 +427,7 @@
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (mocker-let ((my-compile-fun (command &rest rest) ((:input '("my-command foo")))))
-      (should-not (devcontainer-advisable))
+      (should-not (devcontainer-advisable-p))
       (should (equal (devcontainer-advise-command "foo-command") "foo-command"))
       (devcontainer--compile-start-advice #'my-compile-fun "my-command foo"))))
 
@@ -439,7 +439,7 @@
                    (devcontainer-remote-workdir () ((:output "/workspaces/the-project/")))
                    (devcontainer-remote-environment () ((:output '(("PATH" . "/home/vscode/bin") ("FOO" . "to be masked")))))
                    (devcontainer-up-container-id () ((:output "cdefab"))))
-        (should (devcontainer-advisable))
+        (should (devcontainer-advisable-p))
         (should (equal (devcontainer-advise-command "my-command foo") cmd))
         (devcontainer--compile-start-advice #'my-compile-fun "my-command foo")))))
 
@@ -491,7 +491,7 @@
     (let ((cmd "foo-command"))
       (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
                    (tramp-tramp-file-p (path) ((:input `(,project-root-dir) :output t))))
-        (should-not (devcontainer-advisable))
+        (should-not (devcontainer-advisable-p))
         (should (equal (devcontainer-advise-command cmd) cmd))
         (devcontainer--compile-start-advice #'my-compile-fun cmd)))))
 
