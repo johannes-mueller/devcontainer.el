@@ -62,6 +62,11 @@ as container engine rather than `docker`.
 
 If you experience any issues, please report them back in the issue tracker.
 
+> [!IMPORTANT]
+> Please consider this package experimental as long as there is no release yet.
+> There might be breaking changes like changing function and variable names out
+> of the blue.  So please consider checking the git history when updating.
+
 
 ## Usage
 
