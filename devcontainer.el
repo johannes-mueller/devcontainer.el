@@ -436,32 +436,55 @@ update the cache."
        (not (tramp-tramp-file-p (project-root (project-current))))
        (devcontainer-container-needed-p)))
 
+(defun devcontainer--make-env-cli-args (in-terminal)
+  "Make cli-args of the environment variables in `devcontainer-remote-environment'.
+
+If IN-TERMINAL is non-nil, also the ones of
+`devcontainer-term-environment' are added."
+  (apply #'append
+         (remq nil
+               (mapcar (lambda (var)
+                         (when var (list "--env" (format "%s=%s" (car var) (cdr var)))))
+                       (cons nil (append (devcontainer-remote-environment)
+                                         (when in-terminal devcontainer-term-environment)))))))
+
 (defun devcontainer-advice (&optional in-terminal)
   "Determine the prefix that is to be used to run a command inside the container.
 
 If IN-TERMINAL is non nil, the \"-it\" flag is set."
-  (when-let ((container-id (devcontainer-up-container-id)))
-    (format "%s exec %s --workdir %s %s %s"
-            devcontainer-engine
-            (if in-terminal "-it" "")
-            (devcontainer-remote-workdir)
-            (string-join (mapcar (lambda (var) (if var
-                                                   (format "%s=%s"
-                                                           (car var)
-                                                           (shell-quote-argument (cdr var)))
-                                                 ""))
-                                 (cons nil (append (devcontainer-remote-environment)
-                                                   (when in-terminal devcontainer-term-environment)
-                                                   )))
-                         " --env ")
-            container-id)))
+  (when-let* ((container-id (devcontainer-up-container-id)))
+    (remq nil
+          (append
+           (list
+            (symbol-name devcontainer-engine)
+            "exec"
+            (when in-terminal "-it")
+            "--workdir" (devcontainer-remote-workdir))
+           (devcontainer--make-env-cli-args in-terminal)
+           (list container-id)))))
+
+(defun devcontainer--fix-quoted-env-elements (command-string)
+  "Fix overquoted environment elements in COMMAND-STRING.
+
+This is a kind of ugly repair of the environment cli args as in `--env
+FOO=bar'.  `shell-quote-argument' quotes the `=' sign to `--env FOO\\=bar'.
+This reverts that quote."
+  (replace-regexp-in-string "--env \\([a-zA-Z0-9_]+\\)\\\\=" "--env \\1=" command-string))
 
 (defun devcontainer-advise-command (command)
-  "Prepend COMMAND with to run inside the container if possible."
+  "Prepend COMMAND with to run inside the container if possible.
+
+If COMMAND is a string, the advice is prefixed as a string.  If it is a
+list of CLI arguments, the advice is prefiexed as list.  So it should
+work no matter if it is used in `compile' or in other functions issuing
+commands to a shell."
   (if (and (devcontainer-advisable-p)
-           (devcontainer--devcontainerize-command-p command))
+           (devcontainer--devcontainerize-command-p (if (stringp command) command (string-join command " "))))
       (if-let ((advice (devcontainer-advice)))
-          (concat advice " " command)
+          (if (stringp command)
+              (devcontainer--fix-quoted-env-elements
+               (string-join (append (mapcar (lambda (el) (shell-quote-argument el nil)) advice) (list command)) " "))
+            (append advice command))
         (user-error "The devcontainer not running.  Please start it first"))
     command))
 
