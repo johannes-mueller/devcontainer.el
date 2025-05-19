@@ -658,21 +658,21 @@
 
 (ert-deftest devcontainer--term-default-term-and-shell ()
   (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
-               (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+               (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output '("docker" "exec" "-it" "abcd"))))
                (ansi-term (cmd) ((:input '("docker exec -it abcd bash")))))
     (devcontainer-term)))
 
 (ert-deftest devcontainer--term-other-term-default-shell ()
   (let ((devcontainer-term-function #'some-function))
     (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
-                 (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+                 (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output '("docker" "exec" "-it" "abcd"))))
                  (some-function (cmd) ((:input '("docker exec -it abcd bash")))))
      (devcontainer-term))))
 
 (ert-deftest devcontainer--term-default-term-and-zsh ()
   (let ((devcontainer-term-shell "zsh"))
     (mocker-let ((devcontainer-up-container-id () ((:output "abcd")))
-                (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output "docker exec -it abcd")))
+                (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output '("docker" "exec" "-it" "abcd"))))
                 (ansi-term (cmd) ((:input '("docker exec -it abcd zsh")))))
      (devcontainer-term))))
 
