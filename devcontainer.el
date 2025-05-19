@@ -394,7 +394,10 @@ There are the following customization options:
 * `devcontainer-term-environment' to add custom modifications to the environment."
   (interactive)
   (when (devcontainer-up-container-id)
-    (funcall devcontainer-term-function (concat (devcontainer-advice 'in-terminal) " " devcontainer-term-shell))))
+    (funcall devcontainer-term-function
+             (string-join (append (devcontainer-advice 'in-terminal)
+                                  `(,devcontainer-term-shell))
+                          " "))))
 
 (defun devcontainer--workspace-folder ()
   "Retrieve the `--workspace-folder' switch for the current project root."
