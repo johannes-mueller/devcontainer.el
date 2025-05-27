@@ -85,7 +85,7 @@ If you experience any issues, please report them back in the issue tracker.
 * `devcontainer-remove-image` – remove the current project's devcontainer image.
 * `devcontainer-execute-command` – execute an arbitrary command inside the
   devcontainer.
-* `devconatainer-kill-command` – kill the process launched by
+* `devcontainer-kill-command` – kill the process launched by
   `devcontainer-execute-command`.
 * `devcontainer-term` – launch a terminal inside the container.
 
