@@ -576,7 +576,7 @@
     (mocker-let ((devcontainer-container-id () ((:output nil))))
       (should-not (devcontainer-remote-user)))))
 
-(ert-deftest devcontainer--container-user-container-up ()
+(ert-deftest devcontainer--container-user-container-up-default-engine ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
                  (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
@@ -584,6 +584,16 @@
                                                             "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
                                                    :output '("[{\"remoteUser\":\"vscode\"}]")))))
       (should (equal (devcontainer-remote-user) "vscode")))))
+
+(ert-deftest devcontainer--container-user-container-up-podman ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((devcontainer-engine 'podman))
+     (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                  (process-lines (cmd &rest args) ((:input '("podman" "container" "inspect"
+                                                             "abcdef"
+                                                             "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                    :output '("[{\"remoteUser\":\"vscode\"}]")))))
+       (should (equal (devcontainer-remote-user) "vscode"))))))
 
 (ert-deftest devcontainer--remote-env-no-container ()
   (fixture-tmp-dir "test-repo-no-devcontainer"

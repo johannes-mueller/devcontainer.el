@@ -589,7 +589,10 @@ are not yet supported."
   (when-let* ((container-id (devcontainer-container-id)))
     (seq-reduce #'append
                 (json-parse-string
-                 (car (process-lines "docker" "container" "inspect" container-id "--format={{index .Config.Labels \"devcontainer.metadata\"}}"))
+                 (car (process-lines
+                       (symbol-name devcontainer-engine)
+                       "container" "inspect" container-id
+                       "--format={{index .Config.Labels \"devcontainer.metadata\"}}"))
                  :object-type 'alist)
                 nil)))
 
