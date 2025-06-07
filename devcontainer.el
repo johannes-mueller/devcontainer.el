@@ -108,9 +108,9 @@ Otherwise, raise an `error'."
   (append
    (list
     (devcontainer--find-executable)
+    verb
     "--docker-path" (devcontainer--docker-path)
-    "--workspace-folder" (devcontainer--root)
-    verb)
+    "--workspace-folder" (devcontainer--root))
    ;; TODO dotfiles argument
    args))
 
@@ -207,22 +207,49 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable")))
       (let* ((cmd (devcontainer--make-cli-args "up"))
-             (buffer (get-buffer-create "*devcontainer startup*"))
+             (buffer (devcontainer--comint-process-buffer "devcontainer" "devcontainer startup" cmd))
              (proc (with-current-buffer buffer
-                     (let ((inhibit-read-only t)) (erase-buffer))
-                     (apply #'make-comint-in-buffer
-                            "devcontainer"
-                            buffer
-                            (car cmd)
-                            nil         ; STARTFILE
-                            (cdr cmd))
-                     (devcontainer-up-buffer-mode)
-                     (when show-buffer
-                       (temp-buffer-window-show buffer))
-                     (get-buffer-process buffer))))
+                (devcontainer-up-buffer-mode)
+                (when show-buffer
+                  (temp-buffer-window-show buffer))
+                (get-buffer-process buffer))))
         (message "Starting devcontainer...")
         (set-process-sentinel proc #'devcontainer--build-sentinel)
         (devcontainer--set-current-project-state 'devcontainer-is-starting))))
+
+;;;###autoload
+(defun devcontainer-execute-command (command)
+  "Execute COMMAND in the container."
+  (interactive
+   (let ((proposal (car devcontainer--command-history))
+         (history '(devcontainer--command-history . 1)))
+     (list (read-from-minibuffer "Command: " proposal nil nil history))))
+  (unless (devcontainer-container-needed-p)
+    (user-error "No devcontainer for current project"))
+  (unless (devcontainer-up-container-id)
+    (user-error "The devcontainer not running.  Please start it first"))
+  (let* ((cmd (apply #'devcontainer--make-cli-args "exec" (split-string-shell-command command)))
+         (buffer (devcontainer--comint-process-buffer "devcontainer" (format "DevC %s" command) cmd)))
+    (temp-buffer-window-show buffer)
+    buffer))
+
+
+(defun devcontainer--comint-process-buffer (proc-name buffer-name command)
+  "Make a comint buffer.
+
+PROC-NAME is the name given to the process object.  BUFFER-NAME is the
+name given to the buffer.  COMMAND is a list of strings representing the
+command line."
+  (let ((buffer (get-buffer-create (format "*%s*" buffer-name))))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t)) (erase-buffer))
+      (apply #'make-comint-in-buffer
+             proc-name
+             buffer
+             (car command)
+             nil         ; STARTFILE
+             (cdr command)))
+    buffer))
 
 ;;;###autoload
 (defun devcontainer-restart (&optional show-buffer)
@@ -533,44 +560,6 @@ commands to a shell."
 
 (defvar devcontainer--command-history nil)
 
-;;;###autoload
-(defun devcontainer-execute-command (command)
-  "Execute COMMAND inside the devcontainer.
-
-This opens a buffer `*DevC command*' in which you can see and even
-interact with the running process.
-
-TODO: multiple parallel executions (maybe also in different containers)
-are not yet supported."
-  (interactive
-   (list (read-from-minibuffer "Command: " (car devcontainer--command-history) nil nil '(devcontainer--command-history . 1))))
-  (when (not (devcontainer-up-container-id))
-    (user-error "devcontainer not running"))
-  (let* ((container-id (devcontainer-container-id))
-         (cmd-args (append `("exec" "--workspace-folder" ,(devcontainer--root))
-                           (split-string-shell-command command)))
-         (buffer (get-buffer-create "*DevC command*"))
-         (name (concat "DevC-" (devcontainer--root) "-" command))
-         (proc (with-current-buffer buffer
-                 (let ((inhibit-read-only t)) (erase-buffer))
-                 (apply #'make-comint-in-buffer name buffer "devcontainer" nil cmd-args)
-                 (temp-buffer-window-show buffer)
-                 (get-buffer-process buffer)))
-         (pts (string-trim (shell-command-to-string (format "docker exec %s ls -1t /dev/pts | head -1" container-id)))))
-    (process-put proc 'pts pts)))
-
-;;;###autoload
-(defun devcontainer-kill-command ()
-  "Kill the process launched by `devcontainer-execute-command'."
-  (interactive)
-  (let* ((container-id (devcontainer-container-id))
-         (proc (get-buffer-process (get-buffer "*DevC command*")))
-         (pts (process-get proc 'pts)))
-    (devcontainer--call-engine-string-sync "exec"
-                                           container-id
-                                           "pkill"
-                                           "-t"
-                                           (format "pts/%s" pts))))
 
 (defun devcontainer-container-environment ()
   "Retrieve the container environment of current project's devcontainer as alist if it's up."
