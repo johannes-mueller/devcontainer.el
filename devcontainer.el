@@ -217,6 +217,14 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
         (set-process-sentinel proc #'devcontainer--build-sentinel)
         (devcontainer--set-current-project-state 'devcontainer-is-starting))))
 
+(defun devcontainer-find-execute-buffer-name (command)
+  "Create unique name for buffer including COMMAND.
+
+This function is the default function to name the buffer used for
+`devcontainer-execute-command'."
+  (let ((project (file-name-nondirectory (directory-file-name (devcontainer--root)))))
+    (concat project ": " command)))
+
 ;;;###autoload
 (defun devcontainer-execute-command (command)
   "Execute COMMAND in the container."
@@ -229,10 +237,12 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
   (unless (devcontainer-up-container-id)
     (user-error "The devcontainer not running.  Please start it first"))
   (let* ((cmd (apply #'devcontainer--make-cli-args "exec" (split-string-shell-command command)))
-         (buffer (devcontainer--comint-process-buffer "devcontainer" (format "DevC %s" command) cmd)))
+         (buffer (devcontainer--comint-process-buffer
+                  "devcontainer"
+                  (format "DevC %s" (devcontainer-find-execute-buffer-name command))
+                  cmd)))
     (temp-buffer-window-show buffer)
     buffer))
-
 
 (defun devcontainer--comint-process-buffer (proc-name buffer-name command)
   "Make a comint buffer.
@@ -240,7 +250,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
 PROC-NAME is the name given to the process object.  BUFFER-NAME is the
 name given to the buffer.  COMMAND is a list of strings representing the
 command line."
-  (let ((buffer (get-buffer-create (format "*%s*" buffer-name))))
+  (let ((buffer (generate-new-buffer (format "*%s*" buffer-name))))
     (with-current-buffer buffer
       (let ((inhibit-read-only t)) (erase-buffer))
       (apply #'make-comint-in-buffer
