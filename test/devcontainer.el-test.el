@@ -202,6 +202,70 @@
         (devcontainer-up)
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
 
+(ert-deftest container-up-devcontainer-needed-secrets-file-non-existant ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((stdout-buf (get-buffer-create "some-buffer"))
+          (cmdargs `("up"
+                     "--docker-path" "/path/to/docker"
+                     "--workspace-folder" ,(file-name-as-directory real-project-root-dir)))
+          (devcontainer-startup-secrets-file ".secrets.json"))
+      (mocker-let ((generate-new-buffer (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
+                   (message (msg) ((:input '("Starting devcontainer..."))))
+                   (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (make-comint-in-buffer (proc-name buf cmd startfile &rest args)
+                                          ((:input (append `("devcontainer" ,stdout-buf "/some/path/devcontainer" nil) cmdargs))))
+                   (get-buffer-process (buf) ((:input `(,stdout-buf) :output 'proc)))
+                   (set-process-sentinel (proc sentinel) ((:input '(proc devcontainer--build-sentinel)))))
+        (devcontainer-up)
+        (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
+
+(ert-deftest container-up-devcontainer-needed-secrets-file-absolute-existant ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let* ((stdout-buf (get-buffer-create "some-buffer"))
+           (devcontainer-startup-secrets-file (concat (make-temp-file "home" 'directory) ".secrets.json"))
+           (cmdargs `("up"
+                      "--docker-path" "/path/to/docker"
+                      "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                      "--secrets-file" ,devcontainer-startup-secrets-file)))
+      (with-temp-file devcontainer-startup-secrets-file (insert "{\"foo\": \"bar}"))
+      (mocker-let ((generate-new-buffer (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
+                   (message (msg) ((:input '("Starting devcontainer..."))))
+                   (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (make-comint-in-buffer (proc-name buf cmd startfile &rest args)
+                                          ((:input (append `("devcontainer" ,stdout-buf "/some/path/devcontainer" nil) cmdargs))))
+                   (get-buffer-process (buf) ((:input `(,stdout-buf) :output 'proc)))
+                   (set-process-sentinel (proc sentinel) ((:input '(proc devcontainer--build-sentinel)))))
+        (devcontainer-up)
+        (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
+
+
+(ert-deftest container-up-devcontainer-needed-secrets-file-relative-existant ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((stdout-buf (get-buffer-create "some-buffer"))
+          (cmdargs `("up"
+                     "--docker-path" "/path/to/docker"
+                     "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                     "--secrets-file" ,(concat (file-name-as-directory real-project-root-dir) ".secrets.json")
+))
+          (devcontainer-startup-secrets-file ".secrets.json"))
+      (with-temp-file (concat (file-name-as-directory real-project-root-dir) ".secrets.json") (insert "{\"foo\": \"bar}"))
+      (mocker-let ((generate-new-buffer (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
+                   (message (msg) ((:input '("Starting devcontainer..."))))
+                   (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (make-comint-in-buffer (proc-name buf cmd startfile &rest args)
+                                          ((:input (append `("devcontainer" ,stdout-buf "/some/path/devcontainer" nil) cmdargs))))
+                   (get-buffer-process (buf) ((:input `(,stdout-buf) :output 'proc)))
+                   (set-process-sentinel (proc sentinel) ((:input '(proc devcontainer--build-sentinel)))))
+        (devcontainer-up)
+        (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
+
+
 (ert-deftest execute-command-no-container-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (should (equal (cadr (should-error (devcontainer-execute-command "foo command")))
@@ -213,7 +277,7 @@
       (should (equal (cadr (should-error (devcontainer-execute-command "foo command")))
                      "The devcontainer not running.  Please start it first")))))
 
-(ert-deftest execute-command-container-up ()
+(ert-deftest execute-command-container-up-simple ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((stdout-buf (get-buffer-create "*DevC foo command*"))
           (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
