@@ -499,7 +499,8 @@ If IN-TERMINAL is non nil, the \"-it\" flag is set."
             (symbol-name devcontainer-engine)
             "exec"
             (when in-terminal "-it")
-            "--workdir" (devcontainer-remote-workdir))
+            "--workdir" (devcontainer-remote-workdir)
+            "--user" (devcontainer-remote-user))
            (devcontainer--make-env-cli-args in-terminal)
            (list container-id)))))
 
