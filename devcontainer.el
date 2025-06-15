@@ -244,13 +244,28 @@ This function is the default function to name the buffer used for
     (temp-buffer-window-show buffer)
     buffer))
 
+(defun devcontainer--existing-buffer-available (buffer-name)
+  "Find the first available buffer name prefixed BUFFER-NAME[<N>]."
+  (thread-last
+    (buffer-list)
+    (seq-filter (lambda (buffer) (string-prefix-p buffer-name (buffer-name buffer))))
+    (seq-find (lambda (buffer) (not (process-live-p (get-buffer-process buffer)))))))
+
+(defun devcontainer--get-execution-buffer (buffer-name)
+  "Provide an unused buffer for an execution process with BUFFER-NAME.
+
+Takes the first buffer whose name prefixed BUFFER-NAME[<N>] that has
+not a running process associated with it or creates a new one."
+  (or (devcontainer--existing-buffer-available buffer-name)
+      (generate-new-buffer buffer-name)))
+
 (defun devcontainer--comint-process-buffer (proc-name buffer-name command)
   "Make a comint buffer.
 
 PROC-NAME is the name given to the process object.  BUFFER-NAME is the
 name given to the buffer.  COMMAND is a list of strings representing the
 command line."
-  (let ((buffer (generate-new-buffer (format "*%s*" buffer-name))))
+  (let ((buffer (devcontainer--get-execution-buffer (format "*%s*" buffer-name))))
     (with-current-buffer buffer
       (let ((inhibit-read-only t)) (erase-buffer))
       (apply #'make-comint-in-buffer
