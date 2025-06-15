@@ -66,6 +66,14 @@ The hook functions should have four parameters:
   :group 'devcontainer
   :type 'hook)
 
+(defcustom devcontainer-startup-secrets-file nil
+  "The file passed to the `--secrets-file' option of the `devcontainer up' command.
+
+The file can be defined either with an absolute path or relative to the
+devcontainer's workspace folder AKA the project's root directory."
+  :group 'devcontainer
+  :type 'file)
+
 (defvar devcontainer--project-info nil
   "The data structure for state of the devcontainer's of all active projects.
 
@@ -194,6 +202,16 @@ Otherwise, raise an `error'."
            (devcontainer--set-current-project-state 'devcontainer-is-up))
          output)))
 
+(defun devcontainer--secrets-file-arg ()
+  "Return secrets file CLI arg for `devcontainer up' if set and existant."
+  (let ((secrets-file (pcase devcontainer-startup-secrets-file
+                        ('nil nil)
+                        ((pred file-name-absolute-p) devcontainer-startup-secrets-file)
+                        (_  (concat (file-name-as-directory (devcontainer--root))
+                                    devcontainer-startup-secrets-file)))))
+    (when (and secrets-file (file-exists-p secrets-file))
+      `("--secrets-file" ,secrets-file))))
+
 ;;;###autoload
 (defun devcontainer-up (&optional show-buffer)
   "Start the devcontainer of the current project.
@@ -206,7 +224,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
              (devcontainer--set-current-project-state 'no-devcontainer))
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable")))
-      (let* ((cmd (devcontainer--make-cli-args "up"))
+      (let* ((cmd (apply #'devcontainer--make-cli-args "up" (devcontainer--secrets-file-arg)))
              (buffer (devcontainer--comint-process-buffer "devcontainer" "devcontainer startup" cmd))
              (proc (with-current-buffer buffer
                 (devcontainer-up-buffer-mode)
