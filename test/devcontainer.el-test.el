@@ -293,6 +293,24 @@
                    (temp-buffer-window-show (buffer) ((:input `(,stdout-buf)))))
         (should (eq (devcontainer-execute-command "foo command") stdout-buf))))))
 
+
+(ert-deftest execute-command-container-customized-buffer-name-string ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((devcontainer-execution-buffer-naming "customized buffer name")
+          (stdout-buf (get-buffer-create "*DevC foo command*"))
+          (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
+                     "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                     "foo" "command")))
+      (mocker-let ((devcontainer-up-container-id () ((:output "abcdef")))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (devcontainer--comint-process-buffer
+                    (proc-name buffer-name command)
+                    ((:input `("devcontainer" "DevC customized buffer name" ,cli)
+                      :output stdout-buf)))
+                   (temp-buffer-window-show (buffer) ((:input `(,stdout-buf)))))
+        (should (eq (devcontainer-execute-command "foo command") stdout-buf))))))
+
 (defun kill-all-foo-buffers ()
   (let (kill-buffer-hook kill-buffer-query-functions)
     (mapcar #'kill-buffer

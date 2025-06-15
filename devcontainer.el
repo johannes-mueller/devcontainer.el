@@ -74,6 +74,17 @@ devcontainer's workspace folder AKA the project's root directory."
   :group 'devcontainer
   :type 'file)
 
+(defcustom devcontainer-execution-buffer-naming #'devcontainer-find-execute-buffer-name
+  "Define the way buffers for `devcontainer-execute-command' are to be named.
+
+If a string, the string is just use as is as candidate for the buffer
+name.  If a function the function is called with the command string as
+argument.  The function is then supposed to return candidate of the
+buffer name."
+  :group 'devcontainer
+  :type '(choice (string :tag "Static name")
+                 (function :tag "Function taking the command string.")))
+
 (defvar devcontainer--project-info nil
   "The data structure for state of the devcontainer's of all active projects.
 
@@ -243,6 +254,14 @@ This function is the default function to name the buffer used for
   (let ((project (file-name-nondirectory (directory-file-name (devcontainer--root)))))
     (concat project ": " command)))
 
+(defun devcontainer--make-execution-buffer-name (command)
+  "Make execution buffer name for COMMAND according to config.
+
+Evaluates `devcontainer-execution-buffer-naming'"
+  (if (functionp devcontainer-execution-buffer-naming)
+      (funcall devcontainer-execution-buffer-naming command)
+    devcontainer-execution-buffer-naming))
+
 ;;;###autoload
 (defun devcontainer-execute-command (command)
   "Execute COMMAND in the container."
@@ -257,7 +276,7 @@ This function is the default function to name the buffer used for
   (let* ((cmd (apply #'devcontainer--make-cli-args "exec" (split-string-shell-command command)))
          (buffer (devcontainer--comint-process-buffer
                   "devcontainer"
-                  (format "DevC %s" (devcontainer-find-execute-buffer-name command))
+                  (format "DevC %s" (devcontainer--make-execution-buffer-name command))
                   cmd)))
     (temp-buffer-window-show buffer)
     buffer))

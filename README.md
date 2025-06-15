@@ -118,7 +118,8 @@ functions, if the current buffer is a file inside the devcontainer.
 
 ## Configuration
 
-The following things are customizable at this point:
+The following things are customizable at this point. For a complete list of
+configuration options refer to the `devcontainer` configuration group.
 
 * `devcontainer-execute-outside-container` – a list of programs, not to be
   executed inside the container but on the host system. Used for things like
