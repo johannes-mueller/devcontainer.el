@@ -587,15 +587,21 @@ are not yet supported."
 
 (defun devcontainer--container-metadata ()
   "Retrieve the devcontainer's metadata if it's up."
-  (when-let* ((container-id (devcontainer-container-id)))
     (seq-reduce #'append
                 (json-parse-string
-                 (car (process-lines
-                       (symbol-name devcontainer-engine)
-                       "container" "inspect" container-id
-                       "--format={{index .Config.Labels \"devcontainer.metadata\"}}"))
+                 (or (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}")
+                 "{}")
                  :object-type 'alist)
-                nil)))
+                nil))
+
+(defun devcontainer--inspect-container (format-query)
+  "Query FORMAT-QUERY from `docker container inspect --format='."
+  (when-let* ((container-id (devcontainer-container-id)))
+    (string-trim
+     (car (process-lines
+           (symbol-name devcontainer-engine)
+           "container" "inspect" container-id
+           (format "--format=%s" format-query))))))
 
 (defun devcontainer-remote-user ()
   "Retrieve the remote user name of the current project's devcontainer if it's up."
@@ -634,7 +640,12 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
                         (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
                         (devcontainer--bust-json-comments-in-buffer)
                         (json-parse-string (buffer-string)))))
-    (devcontainer--interpolate-variable (file-name-as-directory (gethash "workspaceFolder" config "/")))))
+    (devcontainer--interpolate-variable (file-name-as-directory (or (gethash "workspaceFolder" config)
+                                                                    (devcontainer--determine-workspace-folder-from-container))))))
+
+(defun devcontainer--determine-workspace-folder-from-container ()
+  "Determine the remote workdir in the devcontainer."
+  (devcontainer--inspect-container "{{(index .Mounts 0).Destination}}"))
 
 (defun devcontainer--bust-json-comments-in-buffer ()
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
