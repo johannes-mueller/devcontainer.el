@@ -624,8 +624,13 @@
 
 (ert-deftest devcontainer--workdir-devcontainer-no-workspace-parameter ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
-      (should (equal (devcontainer-remote-workdir) "/")))))
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (devcontainer--root () ((:output (file-name-as-directory real-project-root-dir))))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{(index .Mounts 0).Destination}}")
+                                                   :output '("/workspaces/project")))))
+      (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
 
 (ert-deftest devcontainer--workdir-devcontainer-workspace-parameter-clean-json ()
   (fixture-tmp-dir "test-repo-devcontainer-workspace-folder"
