@@ -230,6 +230,8 @@ Otherwise, raise an `error'."
 If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
   (interactive
    (list (called-interactively-p 'interactive)))
+  (when (eq (devcontainer--current-project-state) 'devcontainer-is-starting)
+    (user-error "Another devcontainer is starting up.  Please wait until that is finished."))
   (if (and (if (devcontainer-container-needed-p) t
              (message "Project does not use a devcontainer.")
              (devcontainer--set-current-project-state 'no-devcontainer))

@@ -248,7 +248,6 @@
         (devcontainer-up)
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
 
-
 (ert-deftest container-up-devcontainer-needed-secrets-file-relative-existant ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((stdout-buf (get-buffer-create "some-buffer"))
@@ -271,6 +270,11 @@
         (devcontainer-up)
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
 
+(ert-deftest container-up-another-container-up-running ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))
+    (should (equal (cadr (should-error (devcontainer-up)))
+                   "Another devcontainer is starting up.  Please wait until that is finished.")))))
 
 (ert-deftest execute-command-no-container-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
