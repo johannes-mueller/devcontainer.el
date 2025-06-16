@@ -200,7 +200,13 @@
                    (get-buffer-process (buf) ((:input `(,stdout-buf) :output 'proc)))
                    (set-process-sentinel (proc sentinel) ((:input '(proc devcontainer--build-sentinel)))))
         (devcontainer-up)
-        (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))))))
+        (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting)))))
+      (with-current-buffer stdout-buf
+        (goto-char (point-min))
+        (end-of-line)
+        (let ((expected (format "/some/path/devcontainer up --docker-path /path/to/docker --workspace-folder %s"
+                                (file-name-as-directory real-project-root-dir))))
+          (should (equal (buffer-substring-no-properties (point-min) (point)) expected)))))))
 
 (ert-deftest container-up-devcontainer-needed-secrets-file-non-existant ()
   (fixture-tmp-dir "test-repo-devcontainer"

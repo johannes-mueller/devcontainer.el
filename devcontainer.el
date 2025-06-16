@@ -304,7 +304,10 @@ name given to the buffer.  COMMAND is a list of strings representing the
 command line."
   (let ((buffer (devcontainer--get-execution-buffer (format "*%s*" buffer-name))))
     (with-current-buffer buffer
-      (let ((inhibit-read-only t)) (erase-buffer))
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (string-join command " "))
+        (insert "\n"))
       (apply #'make-comint-in-buffer
              proc-name
              buffer
