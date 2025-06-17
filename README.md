@@ -70,7 +70,9 @@ If you experience any issues, please report them back in the issue tracker.
 
 ## Usage
 
-`devcontainer` provides the following commands:
+`devcontainer` provides multiple commands to interact with devconntainers. For
+a full list refer to the documentation of functions named `devcontainer-...`.
+The important ones are:
 
 * `devcontianer-mode` – a globally activated minor mode, that you can just have
   always activated.
@@ -80,13 +82,8 @@ If you experience any issues, please report them back in the issue tracker.
 * `devcontainer-rebuild-and-restart` – stop the current project's devcontainer,
   delete its docker images and rebuild it.  This is useful, when you for
   example changed the `Dockerfile` of your devcontianer.
-* `devcontainer-kill-container` – stop the current project's devcontainer.
-* `devcontainer-remove-container` – remove the current project's devcontainer.
-* `devcontainer-remove-image` – remove the current project's devcontainer image.
 * `devcontainer-execute-command` – execute an arbitrary command inside the
   devcontainer.
-* `devcontainer-kill-command` – kill the process launched by
-  `devcontainer-execute-command`.
 * `devcontainer-term` – launch a terminal inside the container.
 
 
@@ -184,8 +181,8 @@ Then the Docker output in the Emacs buffers gets way more readable.
 
 ## Plans
 
-- [ ] See how it works in practice
-- [ ] Fix things that don't work
+- [X] See how it works in practice (it baisically works and is helpful)
+- [X] Fix things that don't work (see [issues](https://github.com/johannes-mueller/devcontainer.el/issues/))
 - [ ] Document things that work
 - [ ] See if we find a way to reliably connect to a language server inside the
       container.  Maybe find inspiration from `eglot-booster-mode`.
