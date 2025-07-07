@@ -1,4 +1,4 @@
-;;; devcontainer --- Support for devcontainer in emacs -*- lexical-binding: t; -*-
+;;; devcontainer.el --- Support for devcontainer -*- lexical-binding: t; -*-
 
 ;; Author: Johannes Mueller <github@johannes-mueller.org>
 ;; URL: https://github.com/johannes-mueller/devcontainer.el
@@ -90,6 +90,10 @@ buffer name."
 
 This is basically a cache that we need not to call the docker
 executable that often.")
+
+
+(defvar devcontainer--command-history nil)
+
 
 (defun devcontainer--docker-path ()
   "Return the path of the Docker-compatible command to call.
@@ -482,10 +486,11 @@ There are the following customization options:
 * `devcontainer-term-function' to determine the terminal emulator
   (defaults to `ansi-term').
 
-* `devcontainer-term-shell' – the shell command to be used inside the container
-  (defaults to `bash').
+* `devcontainer-term-shell' – the shell command to be used inside the
+  container (defaults to `bash').
 
-* `devcontainer-term-environment' to add custom modifications to the environment."
+* `devcontainer-term-environment' to add custom modifications to the
+  environment."
   (interactive)
   (when (devcontainer-up-container-id)
     (funcall devcontainer-term-function
@@ -591,7 +596,9 @@ commands to a shell."
     (apply compile-fun command rest)))
 
 (defun devcontainer--devcontainerize-command-p (command)
-  "Return t if COMMAND is to be run inside the container, i.e. not excluded by config."
+  "Return t if COMMAND is to be run inside the container.
+
+That means not excluded by config."
   (not (member (car (split-string (file-name-base command) " "))
                devcontainer-execute-outside-container)))
 
@@ -613,12 +620,6 @@ commands to a shell."
                   (not (equal (devcontainer--current-project-state) 'devcontainer-is-starting)))]))
 
 
-(defvar devcontainer-up-buffer-mode-map
-    (let ((map (make-sparse-keymap)))
-      (define-key map ["q"] #'quit-window)
-    map))
-
-
 (define-derived-mode devcontainer-up-buffer-mode comint-mode
   "Devcontainer Start"
   "Major mode for devcontainer start buffers"
@@ -626,11 +627,8 @@ commands to a shell."
   (setq-local comint-terminfo-terminal "eterm-color"))
 
 
-(defvar devcontainer--command-history nil)
-
-
 (defun devcontainer-container-environment ()
-  "Retrieve the container environment of current project's devcontainer as alist if it's up."
+  "Retrieve the container environment of current devcontainer if it's up."
   (when-let* ((container-id (devcontainer-container-id)))
     (mapcar (lambda (varstring) (apply #'cons (split-string varstring "=")))
             (json-parse-string
@@ -664,7 +662,7 @@ commands to a shell."
   (alist-get 'remoteUser (devcontainer--container-metadata)))
 
 (defun devcontainer-remote-environment ()
-  "Retrieve the defined remote environment of current project's devcontainer as alist if it's up."
+  "Retrieve the defined remote environment of current devcontainer if it's up."
   (when-let* ((metadata (devcontainer--container-metadata)))
     (mapcar (lambda (elt)
               (cons (car elt) (devcontainer--interpolate-variable (cdr elt))))
