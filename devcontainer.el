@@ -242,7 +242,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
            (or (devcontainer--find-executable)
                (user-error "Don't have devcontainer executable")))
       (let* ((cmd (apply #'devcontainer--make-cli-args "up" (devcontainer--secrets-file-arg)))
-             (buffer (devcontainer--comint-process-buffer "devcontainer" "devcontainer startup" cmd))
+             (buffer (devcontainer--comint-process-buffer "devcontainer" "devcontainer startup" cmd 'insert-cli))
              (proc (with-current-buffer buffer
                 (devcontainer-up-buffer-mode)
                 (when show-buffer
@@ -270,22 +270,53 @@ Evaluates `devcontainer-execution-buffer-naming'"
 
 ;;;###autoload
 (defun devcontainer-execute-command (command)
-  "Execute COMMAND in the container."
-  (interactive
-   (let ((proposal (car devcontainer--command-history))
+  "Execute COMMAND in the container – batch mode."
+  (interactive (devcontainer--execute-interactive-args))
+  (devcontainer--do-execute-command-buffer
+   (split-string-shell-command command)
+   (format "DevC %s" (devcontainer--make-execution-buffer-name command))
+   'insert-cli))
+
+;;;###autoload
+(defun devcontainer-execute-command-interactive (command)
+  "Execute COMMAND in the container – interactive mode."
+  (interactive (devcontainer--execute-interactive-args))
+  (let ((buffer (devcontainer--do-execute-command-buffer
+                 (append (devcontainer--execute-term-environment) (split-string-shell-command command))
+                 (format "DevC %s" (devcontainer--make-execution-buffer-name command)))))
+    (with-current-buffer buffer
+      (setq-local buffer-read-only nil))
+    buffer))
+
+(defun devcontainer--execute-interactive-args ()
+  (let ((proposal (car devcontainer--command-history))
          (history '(devcontainer--command-history . 1)))
      (list (read-from-minibuffer "Command: " proposal nil nil history))))
-  (unless (devcontainer-container-needed-p)
+
+(defun devcontainer--do-execute-command-buffer (cmd-list buffer-name &optional insert-cli)
+    (unless (devcontainer-container-needed-p)
     (user-error "No devcontainer for current project"))
   (unless (devcontainer-up-container-id)
     (user-error "The devcontainer not running.  Please start it first"))
-  (let* ((cmd (apply #'devcontainer--make-cli-args "exec" (split-string-shell-command command)))
+  (let* ((cmd (apply #'devcontainer--make-cli-args "exec" cmd-list))
          (buffer (devcontainer--comint-process-buffer
                   "devcontainer"
-                  (format "DevC %s" (devcontainer--make-execution-buffer-name command))
-                  cmd)))
+                  buffer-name
+                  cmd
+                  insert-cli)))
     (temp-buffer-window-show buffer)
     buffer))
+
+(defun devcontainer--execute-term-environment ()
+  (if devcontainer-term-environment
+      (append '("--remote-env")
+              (mapcar (lambda (elt)
+                        (format "%s=%s" (car elt)
+                                            (if (string-match-p "[ \t\r\n]" (cdr elt))
+                                                (format "\"%s\"" (cdr elt))
+                                              (cdr elt))))
+                      devcontainer-term-environment))
+    '()))
 
 (defun devcontainer--existing-buffer-available (buffer-name)
   "Find the first available buffer name prefixed BUFFER-NAME[<N>]."
@@ -302,7 +333,7 @@ not a running process associated with it or creates a new one."
   (or (devcontainer--existing-buffer-available buffer-name)
       (generate-new-buffer buffer-name)))
 
-(defun devcontainer--comint-process-buffer (proc-name buffer-name command)
+(defun devcontainer--comint-process-buffer (proc-name buffer-name command &optional insert-cli)
   "Make a comint buffer.
 
 PROC-NAME is the name given to the process object.  BUFFER-NAME is the
@@ -312,8 +343,9 @@ command line."
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (string-join command " "))
-        (insert "\n"))
+        (when insert-cli
+          (insert (string-join command " "))
+          (insert "\n")))
       (apply #'make-comint-in-buffer
              proc-name
              buffer
