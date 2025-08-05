@@ -263,7 +263,7 @@
 
 (ert-deftest execute-command-container-up-simple ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (let ((stdout-buf (get-buffer-create "*DevC foo command*"))
+    (let ((stdout-buf (generate-new-buffer "*DevC foo command*"))
           (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
                      "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
                      "foo" "command")))
@@ -271,11 +271,74 @@
                    (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                    (devcontainer--docker-path () ((:output "/path/to/docker")))
                    (devcontainer--comint-process-buffer
-                    (proc-name buffer-name command)
-                    ((:input `("devcontainer" "DevC project: foo command" ,cli)
-                      :output stdout-buf)))
-                   (temp-buffer-window-show (buffer) ((:input `(,stdout-buf)))))
-        (should (eq (devcontainer-execute-command "foo command") stdout-buf))))))
+                    (proc-name buffer-name command &optional insert-cli)
+                    ((:input `("devcontainer" "DevC project: foo command" ,cli insert-cli)
+                      :output stdout-buf))))
+        (should (eq (devcontainer-execute-command "foo command") stdout-buf))
+        (should (get-buffer-window stdout-buf))
+        (with-current-buffer stdout-buf (should buffer-read-only))))))
+
+
+(ert-deftest execute-command-interactive-container-up-no-terminal-config ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((stdout-buf (generate-new-buffer "*DevC foo command*"))
+          (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
+                 "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                 "foo" "command")))
+      (mocker-let ((devcontainer-up-container-id () ((:output "abcdef")))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (devcontainer--comint-process-buffer
+                    (proc-name buffer-name command &optional insert-cli)
+                    ((:input `("devcontainer" "DevC project: foo command" ,cli nil)
+                      :output stdout-buf))))
+        (should (eq (devcontainer-execute-command-interactive "foo command") stdout-buf))
+        (should (get-buffer-window stdout-buf))
+        (with-current-buffer stdout-buf (should-not buffer-read-only))))))
+
+
+(ert-deftest execute-command-interactive-container-up-one-var-terminal-config ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((stdout-buf (generate-new-buffer "*DevC foo command*"))
+          (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
+                 "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                 "--remote-env" "TERM=xterm-256-color"
+                 "foo" "command"))
+          (devcontainer-term-environment '(("TERM" . "xterm-256-color"))))
+      (mocker-let ((devcontainer-up-container-id () ((:output "abcdef")))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (devcontainer--comint-process-buffer
+                    (proc-name buffer-name command &optional insert-cli)
+                    ((:input `("devcontainer" "DevC project: foo command" ,cli nil)
+                      :output stdout-buf))))
+        (should (eq (devcontainer-execute-command-interactive "foo command") stdout-buf))
+        (should (get-buffer-window stdout-buf))
+        (with-current-buffer stdout-buf
+          (should-not buffer-read-only)
+          (insert "Rehe meiden Knackgeräusche.")
+          (should (eq (point) (point-max)))
+          (should (> (point) (point-min))))))))
+
+
+(ert-deftest execute-command-interactive-container-up-two-var-terminal-config ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((stdout-buf (generate-new-buffer "*DevC foo command*"))
+          (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
+                 "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                 "--remote-env" "FOO=\"multiple word variable\"" "BAR=\"with\ttab\""
+                 "foo" "command"))
+          (devcontainer-term-environment '(("FOO" . "multiple word variable") ("BAR" . "with\ttab"))))
+      (mocker-let ((devcontainer-up-container-id () ((:output "abcdef")))
+                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
+                   (devcontainer--docker-path () ((:output "/path/to/docker")))
+                   (devcontainer--comint-process-buffer
+                    (proc-name buffer-name command &optional insert-cli)
+                    ((:input `("devcontainer" "DevC project: foo command" ,cli nil)
+                      :output stdout-buf))))
+        (should (eq (devcontainer-execute-command-interactive "foo command") stdout-buf))
+        (should (get-buffer-window stdout-buf))
+        (with-current-buffer stdout-buf (should-not buffer-read-only))))))
 
 
 (ert-deftest execute-command-container-customized-buffer-name-string ()
@@ -283,17 +346,28 @@
     (let ((devcontainer-execution-buffer-naming "customized buffer name")
           (stdout-buf (get-buffer-create "*DevC foo command*"))
           (cli `("/some/path/devcontainer" "exec" "--docker-path" "/path/to/docker"
-                     "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
-                     "foo" "command")))
+                 "--workspace-folder" ,(file-name-as-directory real-project-root-dir)
+                 "foo" "command")))
       (mocker-let ((devcontainer-up-container-id () ((:output "abcdef")))
                    (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                    (devcontainer--docker-path () ((:output "/path/to/docker")))
                    (devcontainer--comint-process-buffer
-                    (proc-name buffer-name command)
-                    ((:input `("devcontainer" "DevC customized buffer name" ,cli)
+                    (proc-name buffer-name command &optional insert-cli)
+                    ((:input `("devcontainer" "DevC customized buffer name" ,cli insert-cli)
                       :output stdout-buf)))
                    (temp-buffer-window-show (buffer) ((:input `(,stdout-buf)))))
         (should (eq (devcontainer-execute-command "foo command") stdout-buf))))))
+
+(ert-deftest execute-command-interactive-no-container-needed ()
+  (fixture-tmp-dir "test-repo-no-devcontainer"
+    (should (equal (cadr (should-error (devcontainer-execute-command-interactive "foo command")))
+                   "No devcontainer for current project"))))
+
+(ert-deftest execute-command-interactive-container-down ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-up-container-id () ((:output nil))))
+      (should (equal (cadr (should-error (devcontainer-execute-command-interactive "foo command")))
+                     "The devcontainer not running.  Please start it first")))))
 
 (defun kill-all-foo-buffers ()
   (let (kill-buffer-hook kill-buffer-query-functions)
