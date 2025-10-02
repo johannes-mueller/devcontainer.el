@@ -74,14 +74,14 @@ If you experience any issues, please report them back in the issue tracker.
 a full list refer to the documentation of functions named `devcontainer-...`.
 The important ones are:
 
-* `devcontianer-mode` – a globally activated minor mode, that you can just have
+* `devcontainer-mode` – a globally activated minor mode, that you can just have
   always activated.
 * `devcontainer-up` – start the devcontainer of the current project.
 * `devcontainer-restart` – stop and restart the devcontainer of the current
   project.
 * `devcontainer-rebuild-and-restart` – stop the current project's devcontainer,
   delete its docker images and rebuild it.  This is useful, when you for
-  example changed the `Dockerfile` of your devcontianer.
+  example changed the `Dockerfile` of your devcontainer.
 * `devcontainer-execute-command` – execute an arbitrary command inside the
   devcontainer.
 * `devcontainer-term` – launch a terminal inside the container.
