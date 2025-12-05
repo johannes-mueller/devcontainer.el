@@ -587,16 +587,17 @@ If IN-TERMINAL is non-nil, also the ones of
 
 If IN-TERMINAL is non nil, the \"-it\" flag is set."
   (when-let* ((container-id (devcontainer-up-container-id)))
-    (remq nil
-          (append
-           (list
-            (symbol-name devcontainer-engine)
-            "exec"
-            (when in-terminal "-it")
-            "--workdir" (devcontainer-remote-workdir)
-            "--user" (devcontainer-remote-user))
-           (devcontainer--make-env-cli-args in-terminal)
-           (list container-id)))))
+    (let ((remote-user (devcontainer-remote-user)))
+      (remq nil
+            (append
+             (list
+              (symbol-name devcontainer-engine)
+              "exec"
+              (when in-terminal "-it")
+              "--workdir" (devcontainer-remote-workdir)
+              (when remote-user "--user") remote-user)
+             (devcontainer--make-env-cli-args in-terminal)
+             (list container-id))))))
 
 (defun devcontainer--fix-quoted-env-elements (command-string)
   "Fix overquoted environment elements in COMMAND-STRING.
@@ -673,12 +674,9 @@ That means not excluded by config."
 
 (defun devcontainer--container-metadata ()
   "Retrieve the devcontainer's metadata if it's up."
-    (seq-reduce #'append
-                (json-parse-string
-                 (or (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}")
-                 "{}")
-                 :object-type 'alist)
-                nil))
+  (and-let* ((metadata-json (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}"))
+             (_ (length> metadata-json 0)))
+    (seq-reduce #'append (json-parse-string metadata-json :object-type 'alist) nil)))
 
 (defun devcontainer--inspect-container (format-query)
   "Query FORMAT-QUERY from `docker container inspect --format='."
