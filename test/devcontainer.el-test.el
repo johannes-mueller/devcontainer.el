@@ -796,6 +796,15 @@
     (mocker-let ((devcontainer-container-id () ((:output nil))))
       (should-not (devcontainer-remote-user)))))
 
+(ert-deftest devcontainer--remote-user-no-metadata ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("")))))
+      (should-not (devcontainer-remote-user)))))
+
 (ert-deftest devcontainer--container-user-container-up-default-engine ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
@@ -818,6 +827,15 @@
 (ert-deftest devcontainer--remote-env-no-container ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
     (mocker-let ((devcontainer-container-id () ((:output nil))))
+      (should-not (devcontainer-remote-environment)))))
+
+(ert-deftest devcontainer--remote-env-no-metadata ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("")))))
       (should-not (devcontainer-remote-environment)))))
 
 (ert-deftest devcontainer--remote-env-container-up ()

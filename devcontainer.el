@@ -673,12 +673,9 @@ That means not excluded by config."
 
 (defun devcontainer--container-metadata ()
   "Retrieve the devcontainer's metadata if it's up."
-    (seq-reduce #'append
-                (json-parse-string
-                 (or (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}")
-                 "{}")
-                 :object-type 'alist)
-                nil))
+  (and-let* ((metadata-json (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}"))
+             (_ (length> metadata-json 0)))
+    (seq-reduce #'append (json-parse-string metadata-json :object-type 'alist) nil)))
 
 (defun devcontainer--inspect-container (format-query)
   "Query FORMAT-QUERY from `docker container inspect --format='."
