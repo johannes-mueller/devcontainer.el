@@ -587,16 +587,17 @@ If IN-TERMINAL is non-nil, also the ones of
 
 If IN-TERMINAL is non nil, the \"-it\" flag is set."
   (when-let* ((container-id (devcontainer-up-container-id)))
-    (remq nil
-          (append
-           (list
-            (symbol-name devcontainer-engine)
-            "exec"
-            (when in-terminal "-it")
-            "--workdir" (devcontainer-remote-workdir)
-            "--user" (devcontainer-remote-user))
-           (devcontainer--make-env-cli-args in-terminal)
-           (list container-id)))))
+    (let ((remote-user (devcontainer-remote-user)))
+      (remq nil
+            (append
+             (list
+              (symbol-name devcontainer-engine)
+              "exec"
+              (when in-terminal "-it")
+              "--workdir" (devcontainer-remote-workdir)
+              (when remote-user "--user") remote-user)
+             (devcontainer--make-env-cli-args in-terminal)
+             (list container-id))))))
 
 (defun devcontainer--fix-quoted-env-elements (command-string)
   "Fix overquoted environment elements in COMMAND-STRING.

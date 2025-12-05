@@ -682,6 +682,19 @@
          (should (equal (devcontainer-advise-command "grep foo") cmd))
          (devcontainer--compile-start-advice #'my-compile-fun "grep foo"))))))
 
+(ert-deftest compilation-start-no-user ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (let ((cmd "docker exec --workdir /workspaces/project/ abcdef grep foo")
+          (devcontainer-execute-outside-container nil))
+      (mocker-let ((my-compile-fun (command &rest rest) ((:input `(,cmd))))
+                   (devcontainer-remote-workdir () ((:output "/workspaces/project/")))
+                   (devcontainer-remote-user () ((:output nil)))
+                   (devcontainer-remote-environment () ((:output nil)))
+                   (devcontainer-up-container-id () ((:output "abcdef"))))
+        (should (equal (devcontainer-advise-command "grep foo") cmd))
+        (devcontainer--compile-start-advice #'my-compile-fun "grep foo")))))
+
 (ert-deftest compilation-start-exclude-simple ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-devcontainer"
