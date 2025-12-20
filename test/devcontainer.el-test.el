@@ -1,6 +1,8 @@
 (require 'mocker)
 (require 'devcontainer)
 
+(setq python-indent-guess-indent-offset-verbose nil)
+
 (defmacro fixture-tmp-dir (test-repo &rest body)
   (declare (indent 1))
   `(let* ((tmp-dir (make-temp-file "home" 'directory))
@@ -941,5 +943,81 @@
                 (devcontainer-advice (&optional in-terminal) ((:input '(in-terminal) :output '("docker" "exec" "-it" "abcd"))))
                 (ansi-term (cmd) ((:input '("docker exec -it abcd zsh")))))
      (devcontainer-term))))
+
+(ert-deftest container-simple-mode-off ()
+  (devcontainer-mode -1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (with-current-buffer (find-file-noselect "some-file-1.txt")
+      (should (eq fill-column 70)))))
+
+(ert-deftest container-simple-mode-on-no-customization ()
+  (devcontainer-mode 1)
+  (let ((ispell-current-dictionary "esperanto"))
+    (fixture-tmp-dir "test-repo-devcontainer"
+      (with-current-buffer (find-file-noselect "some-file-2.txt")
+        (should (eq fill-column 70))
+        (should (equal ispell-current-dictionary "esperanto"))))))
+
+(ert-deftest container-simple-mode-on-fill-column-80-customization ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (with-current-buffer (find-file-noselect "some-file-3.txt")
+      (should (eq fill-column 80)))))
+
+(ert-deftest container-simple-mode-on-fill-column-79-customization ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-79"
+    (with-current-buffer (find-file-noselect "some-file-4.txt")
+      (should (eq fill-column 79)))))
+
+(ert-deftest container-simple-mode-on-ispell-english-customization ()
+  (devcontainer-mode 1)
+  (let ((ispell-current-dictionary "esperanto"))
+    (fixture-tmp-dir "test-repo-ispell-english"
+      (with-current-buffer (find-file-noselect "some-file-5.txt")
+        (should (eq fill-column 70))
+        (should (equal ispell-current-dictionary "english"))))))
+
+(ert-deftest container-simple-mode-on-fill-column-79-override ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-79"
+    (with-current-buffer (find-file-noselect "some-file-6.txt")
+      (setq-local fill-column 88))
+    (with-current-buffer (find-file-noselect "some-file-6.txt")
+      (should (eq fill-column 88)))))
+
+(ert-deftest container-mode-specific-on-fill-column-customization ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-mode-specific"
+    (with-current-buffer (find-file-noselect "some-file-7.rs")
+      (should (eq fill-column 80)))
+    (with-current-buffer (find-file-noselect "some-file-7.txt")
+      (should (eq fill-column 79)))
+    (with-current-buffer (find-file-noselect "some-file-7.py")
+      (should (eq fill-column 88)))))
+
+(define-derived-mode markdown-mode text-mode "Markdown")
+(add-to-list 'auto-mode-alist
+             '("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)\\'" . markdown-mode))
+
+(ert-deftest container-mode-specific-on-fill-parent-mode ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-mode-specific"
+    (with-current-buffer (find-file-noselect "some-file-8.md")
+      (should (eq fill-column 79)))))
+
+(ert-deftest container-mode-specific-on-fill-override-parent-mode ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-parent-mode-specific"
+    (with-current-buffer (find-file-noselect "some-file-9.md")
+      (should (eq fill-column 88)))
+    (with-current-buffer (find-file-noselect "some-file-9.txt")
+      (should (eq fill-column 79)))))
+
+(ert-deftest container-customization-command ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-command"
+    (mocker-let ((some-function-call (arg) ((:input '(123)))))
+      (with-current-buffer (find-file-noselect "some-file-10.md")))))
 
 ;;; devcontainer.el-test.el ends here
