@@ -450,8 +450,11 @@ programs from being executed inside the devcontainer."
   :keymap devcontainer-mode-map
   :group 'devcontainer
   (if devcontainer-mode
-      (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
-    (advice-remove 'compilation-start #'devcontainer--compile-start-advice)))
+      (progn
+        (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
+        (advice-add 'find-file-noselect :around #'devcontainer--find-file-apply-customization-advice))
+    (advice-remove 'compilation-start #'devcontainer--compile-start-advice)
+    (advice-remove 'find-file-noselect #'devcontainer--find-file-apply-customization-advice)))
 
 (defun devcontainer--set-current-project-state (state)
   "Set the current project's devcontainer state cache to STATE."
@@ -611,7 +614,7 @@ This reverts that quote."
   "Prepend COMMAND with to run inside the container if possible.
 
 If COMMAND is a string, the advice is prefixed as a string.  If it is a
-list of CLI arguments, the advice is prefiexed as list.  So it should
+list of CLI arguments, the advice is prefixed as list.  So it should
 work no matter if it is used in `compile' or in other functions issuing
 commands to a shell."
   (if (and (devcontainer-advisable-p)
@@ -625,6 +628,7 @@ commands to a shell."
     command))
 
 (defun devcontainer--compile-start-advice (compile-fun command &rest rest)
+  "Advise the function COMPILE-FUN by modifying COMMAND passing REST."
   (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
 
@@ -634,6 +638,40 @@ commands to a shell."
 That means not excluded by config."
   (not (member (car (split-string (file-name-base command) " "))
                devcontainer-execute-outside-container)))
+
+(defun devcontainer--find-file-apply-customization-advice (find-file-fun filename &rest args)
+  "Advise FIND-FILE-FUN to apply the customizations.
+
+FILENAME and ARGS are just passed."
+  (let ((already-existing (get-file-buffer filename)))
+    (with-current-buffer (apply find-file-fun filename args)
+      (unless already-existing
+        (when-let* ((config (devcontainer--read-devcontainer-json))
+                    (customizations (gethash "customizations" config))
+                    (emacs-customizations (gethash "emacs" customizations)))
+          (devcontainer--apply-customizations emacs-customizations)
+          (when-let* ((mode-specific-customizations (gethash "modes" emacs-customizations)))
+            (dolist (key (devcontainer--sorted-mode-keys mode-specific-customizations))
+              (devcontainer--apply-mode-specific-customizations key (gethash key mode-specific-customizations))))))
+      (current-buffer))))
+
+(defun devcontainer--sorted-mode-keys (mode-specific-customizations)
+  "Return the sorted keys of MODE-SPECIFIC-CUSTOMIZATIONS."
+  (sort (hash-table-keys mode-specific-customizations)
+        (lambda (left right) (provided-mode-derived-p (intern right) (intern left)))))
+
+(defun devcontainer--apply-customizations (customizations)
+  "Apply CUSTOMIZATIONS."
+  (maphash (lambda (key value)
+             (if (string-prefix-p "(" key)
+                 (eval (read key))
+               (set (intern key) value)))
+           customizations))
+
+(defun devcontainer--apply-mode-specific-customizations (mode customizations)
+  "Apply CUSTOMIZATIONS for MODE."
+  (when (provided-mode-derived-p major-mode (intern mode))
+    (devcontainer--apply-customizations customizations)))
 
 (easy-menu-define devcontainer-menu devcontainer-mode-map
   "Menu to manage devcontainers."
@@ -719,13 +757,17 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
 
 (defun devcontainer-remote-workdir ()
   "Determine the remote workspace folder."
-  (when-let* ((devcontainer-json-file (car (devcontainer-config-files)) )
-              (config (with-temp-buffer
-                        (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
-                        (devcontainer--bust-json-comments-in-buffer)
-                        (json-parse-string (buffer-string)))))
+  (when-let* ((config (devcontainer--read-devcontainer-json)))
     (devcontainer--interpolate-variable (file-name-as-directory (or (gethash "workspaceFolder" config)
                                                                     (devcontainer--determine-workspace-folder-from-container))))))
+
+(defun devcontainer--read-devcontainer-json ()
+  "Read the devcontainer.json file if it exists."
+  (when-let* ((devcontainer-json-file (car (devcontainer-config-files))))
+    (with-temp-buffer
+      (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
+      (devcontainer--bust-json-comments-in-buffer)
+      (json-parse-string (buffer-string)))))
 
 (defun devcontainer--determine-workspace-folder-from-container ()
   "Determine the remote workdir in the devcontainer."
