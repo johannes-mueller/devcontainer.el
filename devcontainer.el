@@ -9,10 +9,13 @@
 
 ;;; Commentary:
 
-;; To be documented
+;; This package lets you handle i.e. start, restart devcontainers of your projects
+;; and forwards all your `compile' commands into the devcontainer by advising
+;; `compilation-start'.  So as long you use `compile' to build, test and run
+;; (parts of your) software, all will be executed inside the devcontainer.
+
 
 ;;; Code:
-
 
 (require 'project)
 (require 'ansi-color)
@@ -91,9 +94,8 @@ buffer name."
 This is basically a cache that we need not to call the docker
 executable that often.")
 
-
-(defvar devcontainer--command-history nil)
-
+(defvar devcontainer--command-history nil
+  "The history of commands for `devcontainer-execute-command'.")
 
 (defun devcontainer--docker-path ()
   "Return the path of the Docker-compatible command to call.
@@ -127,11 +129,12 @@ Otherwise, raise an `error'."
          ret
          out)))))
 
-(defun devcontainer--make-cli-args (verb &rest args)
+(defun devcontainer--make-cli-args (action &rest args)
+  "Setup cli arguments for the devcontainer command performing ACTION with ARGS."
   (append
    (list
     (devcontainer--find-executable)
-    verb
+    action
     "--docker-path" (devcontainer--docker-path)
     "--workspace-folder" (devcontainer--root))
    ;; TODO dotfiles argument
@@ -147,15 +150,16 @@ Otherwise, raise an `error'."
       (expand-file-name (project-root proj))
     (user-error "Not in a project")))
 
-;; Spec: https://containers.dev/implementors/spec/#devcontainerjson
 (defun devcontainer-config-files ()
-  "Get the JSON config files for the current project."
+  "Get the JSON config files for the current project.
+
+https://containers.dev/implementors/spec/#devcontainerjson"
   (let ((default-directory (devcontainer--root)))
     (append (seq-filter #'file-exists-p '(".devcontainer/devcontainer.json" ".devcontainer.json"))
             (seq-sort #'string< (file-expand-wildcards ".devcontainer/*/devcontainer.json")))))
 
 (defun devcontainer-container-needed-p ()
-  "Dertermine if the current project needs (i.e. defines) a devcontainer."
+  "Determine if the current project needs (i.e. specifies) a devcontainer."
   (cond ((eq (devcontainer--current-project-state) 'no-devcontainer) nil)
         ((devcontainer--current-project-state) t)
         ((devcontainer-config-files)
@@ -191,13 +195,10 @@ Otherwise, raise an `error'."
 (defun devcontainer-image-id ()
   "Determine the image id of the primary docker container of the current project."
   (and (devcontainer-container-needed-p)
-       (devcontainer--call-engine-string-sync
-        "images"
-        "--quiet"
-        (devcontainer--image-repo-name))))
+       (devcontainer--call-engine-string-sync "images" "--quiet" (devcontainer--image-repo-name))))
 
 (defun devcontainer--image-repo-name ()
-  "Retrieve the current project's devcontainer's docker image name."
+  "Calculate the current project's devcontainer's image name."
   (when (devcontainer-container-needed-p)
     (let ((directory-hash (secure-hash 'sha256 (directory-file-name (devcontainer--root)))))
       (format "vsc-%s-%s-uid" (project-name (project-current)) directory-hash))))
@@ -235,7 +236,7 @@ If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
   (interactive
    (list (called-interactively-p 'interactive)))
   (when (eq (devcontainer--current-project-state) 'devcontainer-is-starting)
-    (user-error "Another devcontainer is starting up.  Please wait until that is finished."))
+    (user-error "Another devcontainer is starting up.  Please wait until that is finished"))
   (if (and (if (devcontainer-container-needed-p) t
              (message "Project does not use a devcontainer.")
              (devcontainer--set-current-project-state 'no-devcontainer))
@@ -277,6 +278,22 @@ Evaluates `devcontainer-execution-buffer-naming'"
    (format "DevC %s" (devcontainer--make-execution-buffer-name command))
    'insert-cli))
 
+(defun devcontainer--do-execute-command-buffer (command buffer-name &optional insert-cli)
+  "Execute COMMAND in a new buffer named BUFFER-NAME.
+Insert the command line if INSERT-CLI is non-nil."
+  (unless (devcontainer-container-needed-p)
+    (user-error "No devcontainer for current project"))
+  (unless (devcontainer-up-container-id)
+    (user-error "The devcontainer not running.  Please start it first"))
+  (let* ((cmd (apply #'devcontainer--make-cli-args "exec" command))
+         (buffer (devcontainer--comint-process-buffer
+                  "devcontainer"
+                  buffer-name
+                  cmd
+                  insert-cli)))
+    (temp-buffer-window-show buffer)
+    buffer))
+
 ;;;###autoload
 (defun devcontainer-execute-command-interactive (command)
   "Execute COMMAND in the container – interactive mode."
@@ -289,25 +306,13 @@ Evaluates `devcontainer-execution-buffer-naming'"
     buffer))
 
 (defun devcontainer--execute-interactive-args ()
+  "Prompt user for a command for `devcontainer-execute-command-interactive'."
   (let ((proposal (car devcontainer--command-history))
-         (history '(devcontainer--command-history . 1)))
+        (history '(devcontainer--command-history . 1)))
      (list (read-from-minibuffer "Command: " proposal nil nil history))))
 
-(defun devcontainer--do-execute-command-buffer (cmd-list buffer-name &optional insert-cli)
-    (unless (devcontainer-container-needed-p)
-    (user-error "No devcontainer for current project"))
-  (unless (devcontainer-up-container-id)
-    (user-error "The devcontainer not running.  Please start it first"))
-  (let* ((cmd (apply #'devcontainer--make-cli-args "exec" cmd-list))
-         (buffer (devcontainer--comint-process-buffer
-                  "devcontainer"
-                  buffer-name
-                  cmd
-                  insert-cli)))
-    (temp-buffer-window-show buffer)
-    buffer))
-
 (defun devcontainer--execute-term-environment ()
+  "Add cli option to inject `devcontainer-term-environment'."
   (if devcontainer-term-environment
       (append '("--remote-env")
               (mapcar (lambda (elt)
@@ -338,7 +343,8 @@ not a running process associated with it or creates a new one."
 
 PROC-NAME is the name given to the process object.  BUFFER-NAME is the
 name given to the buffer.  COMMAND is a list of strings representing the
-command line."
+command line.  If INSERT-CLI is non-nil, the command line is inserted at
+the first line of the buffer."
   (let ((buffer (devcontainer--get-execution-buffer (format "*%s*" buffer-name))))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
@@ -474,44 +480,45 @@ programs from being executed inside the devcontainer."
   (or (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
       (equal (devcontainer--current-project-state) 'devcontainer-startup-failed)))
 
-(defun devcontainer--build-process-stdout-filter (proc string)
-  (when (buffer-live-p (process-buffer proc))
-    (with-current-buffer (process-buffer proc)
-      (let ((start (point))
-            (buffer-read-only nil))
-        (insert (string-replace "\r\n" "\n" string))
-        (ansi-color-apply-on-region start (point-max))))))
-
 (defun devcontainer--build-sentinel (process event)
-  (let* ((buf (process-buffer process))
-         (cmd-result (with-current-buffer buf
-                       (let ((result (progn
-                                       (goto-char (point-max))
-                                       (backward-sexp)
-                                       (substring (buffer-string) (1- (point)))))
-                             (buffer-read-only nil))
-                         (goto-char (point-max))
-                         (insert (format "Process %s %s" (process-name process) event))
-                         result)))
-         (container-launch-result (condition-case nil
-                                      (json-parse-string cmd-result)
-                                    (json-parse-error nil))))
-    (if container-launch-result
-        (let ((outcome (gethash "outcome" container-launch-result))
-              (container-id (gethash "containerId" container-launch-result)))
-          (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-is-up)
-          (if (string= outcome "success")
-              (let ((container-name (gethash "composeProjectName" container-launch-result))
-                    (remote-user (gethash "remoteUser" container-launch-result))
-                    (remote-workdir (gethash "remoteWorkspaceFolder" container-launch-result)))
-                (run-hook-with-args 'devcontainer-post-startup-hook container-id container-name remote-user remote-workdir)
-                (message "Successfully brought up container id %s" (substring container-id 0 12)))
-            (let ((message (gethash "message" container-launch-result))
-                  (description (gethash "description" container-launch-result)))
-              (user-error "%s: %s – %s" outcome message description)
-              (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
-      (user-error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")
-      (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed))))
+  "The sentinel for PROCESS handling EVENT."
+  (let ((container-launch-result
+         (condition-case nil
+             (json-parse-string (devcontainer--extract-process-result-json (process-buffer process)))
+           (json-parse-error nil))))
+    (devcontainer--append-success-failure-info process event)
+    (unless container-launch-result
+      (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed)
+      (error "Garbled output from `devcontainer up'.  See *devcontainer startup* buffer"))
+
+    (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-is-up)
+
+    (let ((outcome (gethash "outcome" container-launch-result))
+          (container-id (gethash "containerId" container-launch-result)))
+      (if (string= outcome "success")
+          (let ((container-name (gethash "composeProjectName" container-launch-result))
+                (remote-user (gethash "remoteUser" container-launch-result))
+                (remote-workdir (gethash "remoteWorkspaceFolder" container-launch-result)))
+            (run-hook-with-args 'devcontainer-post-startup-hook container-id container-name remote-user remote-workdir)
+            (message "Successfully brought up container id %s" (substring container-id 0 12)))
+        (let ((message (gethash "message" container-launch-result))
+              (description (gethash "description" container-launch-result)))
+          (setf (alist-get (project-current) devcontainer--project-info nil nil 'equal) 'devcontainer-startup-failed)
+          (user-error "%s: %s – %s" outcome message description))))))
+
+(defun devcontainer--extract-process-result-json (buffer)
+  "Extract the devcontainer process result json out out BUFFER."
+  (with-current-buffer buffer
+    (goto-char (point-max))
+    (backward-sexp)
+    (substring (buffer-string) (1- (point)))))
+
+(defun devcontainer--append-success-failure-info (process event)
+  "Append a line to PROCESS buffer about sucess or failing EVENT."
+  (with-current-buffer (process-buffer process)
+    (let ((buffer-read-only nil))
+      (goto-char (point-max))
+      (insert (format "Process %s %s" (process-name process) event)))))
 
 (defun devcontainer-term ()
   "Start a shell inside the container.
@@ -646,14 +653,18 @@ FILENAME and ARGS are just passed."
   (let ((already-existing (get-file-buffer filename)))
     (with-current-buffer (apply find-file-fun filename args)
       (unless already-existing
-        (when-let* ((config (devcontainer--read-devcontainer-json))
-                    (customizations (gethash "customizations" config))
-                    (emacs-customizations (gethash "emacs" customizations)))
-          (devcontainer--apply-customizations emacs-customizations)
-          (when-let* ((mode-specific-customizations (gethash "modes" emacs-customizations)))
-            (dolist (key (devcontainer--sorted-mode-keys mode-specific-customizations))
-              (devcontainer--apply-mode-specific-customizations key (gethash key mode-specific-customizations))))))
+        (devcontainer--read-and-apply-customizations))
       (current-buffer))))
+
+(defun devcontainer--read-and-apply-customizations ()
+  "Read the customizations from `devcontainer.json' and apply them."
+  (when-let* ((config (devcontainer--read-devcontainer-json))
+              (customizations (gethash "customizations" config))
+              (emacs-customizations (gethash "emacs" customizations)))
+    (devcontainer--apply-customizations emacs-customizations)
+    (when-let* ((mode-specific-customizations (gethash "modes" emacs-customizations)))
+      (dolist (key (devcontainer--sorted-mode-keys mode-specific-customizations))
+        (devcontainer--apply-mode-specific-customizations key (gethash key mode-specific-customizations))))))
 
 (defun devcontainer--sorted-mode-keys (mode-specific-customizations)
   "Return the sorted keys of MODE-SPECIFIC-CUSTOMIZATIONS."
@@ -693,7 +704,7 @@ FILENAME and ARGS are just passed."
 
 (define-derived-mode devcontainer-up-buffer-mode comint-mode
   "Devcontainer Start"
-  "Major mode for devcontainer start buffers"
+  "Major mode for devcontainer start buffers."
   (setq-local buffer-read-only t)
   (setq-local comint-terminfo-terminal "eterm-color"))
 
@@ -774,9 +785,11 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
   (devcontainer--inspect-container "{{(index .Mounts 0).Destination}}"))
 
 (defun devcontainer--bust-json-comments-in-buffer ()
+  "Bust comments in the `devcontainer.json' buffer."
   (while (re-search-forward "^\\([^\"]*?\\)\\(\\(\"[^\"]*\"[^\"]*?\\)*\\)//.*" nil t)
     (replace-match "\\1\\2")))
 
+;;;###autoload
 (defun devcontainer-tramp-dired (_container-id container-name remote-user remote-workdir)
   "Open a Dired window inside devcontainer's working folder.
 
