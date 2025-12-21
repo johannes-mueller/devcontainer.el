@@ -168,9 +168,10 @@
 (ert-deftest container-up-devcontainer-needed-no-excecutable ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((get-buffer-create (name) ((:input '("*devcontainer startup*") :occur 0)))
-                 (devcontainer--find-executable () ((:output nil)))
-                 (user-error (msg) ((:input '("Don't have devcontainer executable")))))
-      (devcontainer-up))))
+                 (devcontainer--find-executable () ((:output nil))))
+      (let ((report (should-error (devcontainer-up))))
+        (should (eq (car report) 'user-error))
+        (should (equal (cadr report) "Don’t have devcontainer executable"))))))
 
 (ert-deftest devcontainer-image-id-non-existent ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
@@ -192,7 +193,6 @@
   `(let ((stdout-buf (get-buffer-create "some-buffer")))
      (mocker-let ((generate-new-buffer (name) ((:input '("*devcontainer startup*") :output stdout-buf)))
                   (message (msg) ((:input '("Starting devcontainer..."))))
-                  (user-error (msg) ((:input '("Don't have devcontainer executable.") :occur 0)))
                   (devcontainer--find-executable () ((:output "/some/path/devcontainer")))
                   (devcontainer--docker-path () ((:output "/path/to/docker")))
                   (make-comint-in-buffer (proc-name buf cmd startfile &rest args)
@@ -250,7 +250,7 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-starting))))
     (should (equal (cadr (should-error (devcontainer-up)))
-                   "Another devcontainer is starting up.  Please wait until that is finished.")))))
+                   "Another devcontainer is starting up.  Please wait until that is finished")))))
 
 (ert-deftest execute-command-no-container-needed ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
@@ -435,7 +435,7 @@
   (defvar container-id-was nil)
   (defvar container-name-was nil)
   (defvar remote-user-was nil)
-  (defvar remote-workdir nil)
+  (defvar remote-workdir-was nil)
   (add-hook 'devcontainer-post-startup-hook
             (lambda (container-id container-name remote-user remote-workdir)
               (setq container-id-was container-id)
@@ -461,20 +461,21 @@
     (insert "{\"outcome\":\"error\",\"message\":\"Some error message\",\"description\":\"some description\"}")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
-                 (project-current () ((:output '(foo . "~/foo/bar/"))))
-                 (user-error (tmpl outcome msg desc) ((:input '("%s: %s – %s" "error" "Some error message" "some description")))))
-      (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")
+                 (project-current () ((:output '(foo . "~/foo/bar/")))))
+      (let ((report (should-error (devcontainer--build-sentinel 'myproc "exited abnormally with code 1"))))
+        (should (eq (car report) 'user-error))
+        (should (equal (cadr report) "error: Some error message – some description"))))
       (should (string-suffix-p "Process devcontainer up exited abnormally with code 1" (buffer-string)))
-      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
+      (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed))))))
 
 (ert-deftest container-up-sentinel-defined-garbled ()
   (with-temp-buffer
     (insert "Some non json stuff")
     (mocker-let ((process-buffer (proc) ((:input '(myproc) :output (current-buffer))))
                  (process-name (proc) ((:input '(myproc) :output "devcontainer up")))
-                 (project-current () ((:output '(foo . "~/foo/bar/"))))
-                 (user-error (msg) ((:input '("Garbled output from `devcontainer up'.  See *devcontainer startup* buffer")))))
-      (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")
+                 (project-current () ((:output '(foo . "~/foo/bar/")))))
+      (should (equal (cadr (should-error (devcontainer--build-sentinel 'myproc "exited abnormally with code 1")))
+                     "Garbled output from ‘devcontainer up’.  See *devcontainer startup* buffer"))
       (should (string-suffix-p "Process devcontainer up exited abnormally with code 1" (buffer-string)))
       (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-startup-failed)))))))
 
@@ -496,13 +497,14 @@
             (progn
               (setenv "HOME" "/home/me")
               (devcontainer-kill-container)
-              (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down))))
-              (setenv "HOME" home-dir)))))))
+              (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))))
+          (setenv "HOME" home-dir))))))
 
 (ert-deftest kill-container-non-existent ()
-  (mocker-let ((devcontainer-up-container-id () ((:output nil)))
-               (user-error (msg) ((:input '("No container running")))))
-    (devcontainer-kill-container)))
+  (mocker-let ((devcontainer-up-container-id () ((:output nil))))
+    (let ((report (should-error (devcontainer-kill-container))))
+        (should (eq (car report) 'user-error))
+        (should (equal (cadr report) "No container running")))))
 
 (ert-deftest remove-container-existent ()
   (setq devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))
@@ -515,22 +517,22 @@
     (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-needed))))))
 
 (ert-deftest remove-container-non-existent ()
-  (mocker-let ((devcontainer-container-id () ((:output nil)))
-               (user-error (msg) ((:input '("No container to be removed")))))
-    (devcontainer-remove-container)))
+  (mocker-let ((devcontainer-container-id () ((:output nil))))
+    (let ((report (should-error (devcontainer-remove-container))))
+      (should (eq (car report) 'user-error))
+      (should (equal (cadr report) "No container to be removed")))))
 
 (ert-deftest remove-image-non-existent-not-needed ()
-  (mocker-let ((devcontainer-container-needed-p () ((:output nil)))
-               (user-error (msg) ((:input '("No devcontainer for current project")))))
-    (devcontainer-remove-image)))
-
+  (mocker-let ((devcontainer-container-needed-p () ((:output nil))))
+    (let ((report (should-error (devcontainer-remove-image))))
+        (should (eq (car report) 'user-error))
+        (should (equal (cadr report) "No devcontainer for current project")))))
 
 (ert-deftest remove-image-non-existent-needed ()
   (mocker-let ((devcontainer-container-needed-p () ((:output t)))
                (devcontainer-image-id () ((:output nil)))
                (devcontainer--call-engine-string-sync (cmd) ((:occur 0))))
     (devcontainer-remove-image)))
-
 
 (ert-deftest remove-image-existent-no-container ()
   (mocker-let ((devcontainer-container-needed-p () ((:output t)))
@@ -552,8 +554,9 @@
 
 (ert-deftest restart-container-non-existent ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
-    (mocker-let ((user-error (msg) ((:input '("No devcontainer for current project")))))
-      (devcontainer-restart))))
+    (let ((report (should-error (devcontainer-restart))))
+      (should (eq (car report) 'user-error))
+      (should (equal (cadr report) "No devcontainer for current project")))))
 
 (ert-deftest restart-container-not-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
@@ -570,8 +573,9 @@
 
 (ert-deftest rebuild-and-restart-container-non-existent ()
   (fixture-tmp-dir "test-repo-no-devcontainer"
-    (mocker-let ((user-error (msg) ((:input '("No devcontainer for current project")))))
-      (devcontainer-rebuild-and-restart))))
+    (let ((report (should-error (devcontainer-rebuild-and-restart))))
+      (should (eq (car report) 'user-error))
+      (should (equal (cadr report) "No devcontainer for current project"))) ))
 
 (ert-deftest rebuild-and-restart-container-not-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
