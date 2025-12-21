@@ -1,45 +1,32 @@
+\input texinfo    @c -*- texinfo -*-
+@c %**start of header
+@settitle User Manual for devcontainer.el
+@setfilename devcontainer.info
+@documentencoding UTF-8
+@documentlanguage en
+@c %**end of header
+
 @node Top
 @top Top
 
-@uref{https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml,@image{https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml/badge,,,Tests,svg}}
-
-@menu
-* devcontainerel::
-@end menu
-
-@node devcontainerel
-@chapter devcontainer.el
 Rudimentary devcontainer support for Emacs
 
 @menu
-* Synopsis::
-* Motivation::
-* Status::
+* Introduction::
 * Usage::
 * Configuration::
-* Installation::
-* Plans::
-* Contributing::
-* Development::
 @end menu
 
-@node Synopsis
+@node Introduction
+@chapter Introduction
+
 @section Synopsis
 This package lets you handle i.e.@ start, restart devcontainers of your
-projects and forwards all your @code{compile} commands into the
-devcontainer by advising @code{compilation-start}. So as long you use
-@code{compile} to build, test and run (parts of your) software, all will
+projects and forwards all your @command{compile} commands into the
+devcontainer by advising @command{compilation-start}. So as long you use
+@command{compile} to build, test and run (parts of your) software, all will
 be executed inside the devcontainer.
 
-@node Motivation
-@section Motivation
-
-@menu
-* What are devcontainers?::
-* Approach for support in Emacs::
-@end menu
-
-@node What are devcontainers?
 @subsection What are devcontainers?
 @uref{https://containers.dev/,Devcontainers} become increasingly popular
 in modern software development. The idea is to put everything the
@@ -54,7 +41,6 @@ run the complete tooling inside the container, even their IDE. The
 configuration of the IDE -- i.e.@ which extensions are to be installed
 -- is also defined by the definition of the devcontainer.
 
-@node Approach for support in Emacs
 @subsection Approach for support in Emacs
 While you technically don't need to use devcontainers even though your
 team is using them, it is convenient for you also to use devcontainers
@@ -67,125 +53,99 @@ comes in.
 @code{devcontainer} provides a set Emacs commands to build, launch,
 stop, erase and rebuild the devcontainer according to its definition in
 the project's repo. In order for you to run and test your software
-inside the devcontainer, @code{devcontainer-mode} advises Emacs'
-@code{compilation-start} function to prepend
+inside the devcontainer, @command{devcontainer-mode} advises Emacs'
+@command{compilation-start} function to prepend
 @code{devcontainer exec --workspace-folder .} to your compilation
 command and thus runs the compilation command inside the container.
 
 Usually you would mount your local working directory into your
 devcontainer. Then you edit files just like without using devcontainer.
-Then, launching any kind of @code{compile} command, it is actually
+Then, launching any kind of @command{compile} command, it is actually
 performed inside your devcontainer.
 
-@node Status
-@section Status
-Development started a couple of months ago. Since then it has been of
-big help to me in my day job programming. With my usual workflows, the
-packages just does its job and otherwise stays out of my way. As I don't
-tend to experiment that much with edge cases, I might not be aware of
-caveats, when different workflows are used. This might especially the
-case if you are using @code{podman} as container engine rather than
-@code{docker}.
-
-If you experience any issues, please report them back in the issue
-tracker.
-
-@quotation
-[!IMPORTANT] Please consider this package experimental as long as there
-is no release yet. There might be breaking changes like changing
-function and variable names out of the blue. So please consider checking
-the git history when updating.
-@end quotation
 
 @node Usage
-@section Usage
+@chapter Usage
 @code{devcontainer} provides multiple commands to interact with
 devconntainers. For a full list refer to the documentation of functions
 named @code{devcontainer-...}. The important ones are:
 
 @itemize
 @item
-@code{devcontainer-mode} -- a globally activated minor mode, that you
+@command{devcontainer-mode} -- a globally activated minor mode, that you
 can just have always activated.
 @item
-@code{devcontainer-up} -- start the devcontainer of the current project.
+@command{devcontainer-up} -- start the devcontainer of the current project.
 @item
-@code{devcontainer-restart} -- stop and restart the devcontainer of the
+@command{devcontainer-restart} -- stop and restart the devcontainer of the
 current project.
 @item
-@code{devcontainer-rebuild-and-restart} -- stop the current project's
+@command{devcontainer-rebuild-and-restart} -- stop the current project's
 devcontainer, delete its docker images and rebuild it. This is useful,
 when you for example changed the @code{Dockerfile} of your devcontainer.
 @item
-@code{devcontainer-execute-command} -- execute an arbitrary command
+@command{devcontainer-execute-command} -- execute an arbitrary command
 inside the devcontainer.
 @item
-@code{devcontainer-term} -- launch a terminal inside the container.
+@command{devcontainer-term} -- launch a terminal inside the container.
 @end itemize
 
-@menu
-* Forwarding commands that are not using @code{compile}::
-* Using TRAMP::
-@end menu
-
-@node Forwarding commands that are not using @code{compile}
-@subsection Forwarding commands that are not using @code{compile}
+@section Forwarding commands that are not using @command{compile}
 If you need to forward some process call into the devcontainer which is
-not done by the @code{compile} command of Emacs, you can use
-@code{devcontainer-advise-command} to prepend the
+not done by the @command{compile} command of Emacs, you can use
+@command{devcontainer-advise-command} to prepend the
 @code{devcontainer exec} call in front of your command. If you are not
-sure if @code{devcontainer} is always available you can use the
-following call, which modifies your command if @code{devcontainer} is
+sure if @command{devcontainer} is always available you can use the
+following call, which modifies your command if @command{devcontainer} is
 available and if the command modification is advisable.
 
-@verbatim
+@lisp
 (funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
-@end verbatim
+@end lisp
 
-@node Using TRAMP
-@subsection Using TRAMP
+@section Using TRAMP
 An alternative way of using the package is to edit the files inside the
 container itself using Emacs' builtin
 @uref{https://www.gnu.org/software/tramp/,TRAMP} facility. There are
 pros and cons to it. In order to use it, you can let
-@code{devcontainer-mode} deactivated and use the function
-@code{devcontainer-tramp-dired} to open a @code{dired} window inside the
+@command{devcontainer-mode} deactivated and use the function
+@command{devcontainer-tramp-dired} to open a @command{dired} window inside the
 container. Then you can open files of your project inside the container.
 
-If @code{devcontainer-mode} is activated it refrains from advising
-@code{compile} functions, if the current buffer is a file inside the
+If @command{devcontainer-mode} is activated it refrains from advising
+@command{compile} functions, if the current buffer is a file inside the
 devcontainer.
 
 @node Configuration
-@section Configuration
+@chapter Configuration
 The following things are customizable at this point. For a complete list
-of configuration options refer to the @code{devcontainer} configuration
+of configuration options refer to the @command{devcontainer} configuration
 group.
 
 @itemize
 @item
-@code{devcontainer-execute-outside-container} -- a list of programs, not
+@var{devcontainer-execute-outside-container} -- a list of programs, not
 to be executed inside the container but on the host system. Used for
-things like @code{grep}.
+things like @command{grep}.
 
 @item
-@code{devcontainer-post-startup-hook} -- a hook variable that can
+@var{devcontainer-post-startup-hook} -- a hook variable that can
 provide functions that are called after the container has been started.
 They take a couple of arguments. See the functions' documentation for
 details.
 
 One example use case is to hook in the function
-@code{devcontainer-tramp-dired} to open a @code{dired} window inside the
+@var{devcontainer-tramp-dired} to open a @command{dired} window inside the
 container right after the start of the container.
 
 @item
-@code{devcontainer-engine} -- the container engine you want to use. Can
+@var{devcontainer-engine} -- the container engine you want to use. Can
 be either @code{'docker} (default) or @code{'podman}
 
 @item
-There are @code{devcontainer-term-command},
-@code{devcontainer-term-shell} and @code{devcontainer-term-environment}
-to customize the terminal launched by @code{devcontainer-term}.
+There are @var{devcontainer-term-command},
+@var{devcontainer-term-shell} and @var{devcontainer-term-environment}
+to customize the terminal launched by @command{devcontainer-term}.
 
 @end itemize
 
@@ -199,112 +159,3 @@ variable by
 @end verbatim
 
 @end quotation
-
-@node Installation
-@section Installation
-
-@menu
-* Prerequisites::
-* Installing the package::
-@end menu
-
-@node Prerequisites
-@subsection Prerequisites
-You need to have the
-@uref{https://github.com/devcontainers/cli,devcontainers/cli} command
-line tool installed into your execution path. For that you need a
-working @code{node}/@code{npm} setup. Then you can install the tool with
-
-@verbatim
-npm install -g @devcontainers/cli
-@end verbatim
-
-Of course you also need a working @uref{https://docker.com,docker}
-installation and probably also
-@uref{https://docs.docker.com/compose/,docker compose}.
-
-@node Installing the package
-@subsection Installing the package
-At the moment the most convenient method to install it is using
-@uref{https://github.com/raxod502/straight.el,straightel}. Put the
-following lines into your startup file.
-
-@verbatim
-(use-package devcontainer
-  :straight (devcontainer :type git :host github :repo "johannes-mueller/devcontainer.el"))
-@end verbatim
-
-Then you have a bunch of commands prefixed with @code{devcontainer-} to
-have fun with devcontainers. As of now they are not documented.
-Documentation will be written once some practical experience is gained.
-
-Maybe you also want to install the @code{coterm} package and activate
-@code{coterm-mode}. Then the Docker output in the Emacs buffers gets way
-more readable.
-
-@node Plans
-@section Plans
-@itemize
-@item
-☒ See how it works in practice (it baisically works and is helpful)
-@item
-☒ Fix things that don't work (see
-@uref{https://github.com/johannes-mueller/devcontainer.el/issues/,issues})
-@item
-☐ Document things that work
-@item
-☐ See if we find a way to reliably connect to a language server inside
-the container. Maybe find inspiration from @code{eglot-booster-mode}.
-@item
-☐ See if we can get @uref{https://github.com/svaante/dape,dape} to work
-with @code{devcontainer-mode}.
-@item
-☐ See if anything more is needed that can be implemented with a
-reasonable effort.
-@item
-☐ Announce it to @uref{https://melpa.org/,melpa}
-@item
-☐ Enjoy the @code{devcontainer} package in real life programming
-@end itemize
-
-@node Contributing
-@section Contributing
-At this stage of development it would be great if you share your
-thoughts on the
-@uref{https://github.com/johannes-mueller/devcontainer.el/discussions/,discussion
-page}. If you have something more concrete, you can for sure also file
-an issue.
-
-@node Development
-@section Development
-This package uses unit tests defined by Emacs' built in
-@uref{https://www.gnu.org/software/emacs/manual/html_mono/ert.html,ERT}
-testing framework. An easy way to run the tests is
-@uref{https://github.com/rejeep/ert-runner.el,ert-runnerel}. To run the
-test suite from the command line simply
-
-@itemize
-@item
-Install @uref{https://github.com/cask/cask,Cask} on your system
-@item
-Open a shell in the repo's root directory
-@item
-Install the rependencies using
-@end itemize
-
-@verbatim
-$ cask install
-@end verbatim
-
-@itemize
-@item
-Run the test suite using
-@end itemize
-
-@verbatim
-$ cask exec ert-runner
-@end verbatim
-
-If you want to run the tests interactively from within emacs, you might
-want to take a look at
-@uref{https://github.com/johannes-mueller/test-cockpit.el,test-cockpitel}.
