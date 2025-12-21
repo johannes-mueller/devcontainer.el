@@ -10,6 +10,8 @@ on:
     branches:
       - main
       - ci-debug
+  schedule:
+    - cron: "0 11 * * 0"
 
 jobs:
   linting:
