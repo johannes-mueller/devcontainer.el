@@ -88,6 +88,21 @@ buffer name."
   :type '(choice (string :tag "Static name")
                  (function :tag "Function taking the command string.")))
 
+(defcustom devcontainer-apply-customization 'ask
+  "Define weather to apply customizations defined in `devcontainer.json' file.
+
+The `devcontainer.json' file can provide customizations, i.e. variable
+settings and commands to execute, in order to align Emacs' configuration
+with the project.  As that is a potential security risk this is not done
+unconditionally.  By this option the user can choose between:
+* `always' – always apply the customizations for every repository.
+* `never' – never apply the customizations for any repository.
+* `ask' – ask for a new repositort and then remember the answer."
+  :group 'devcontainer
+  :type '(choice (const always)
+                 (const never)
+                 (const ask)))
+
 (defvar devcontainer--project-info nil
   "The data structure for state of the devcontainer's of all active projects.
 
@@ -96,6 +111,9 @@ executable that often.")
 
 (defvar devcontainer--command-history nil
   "The history of commands for `devcontainer-execute-command'.")
+
+(defvar devcontainer--customization-request-cache-alist nil
+  "Cached answers whether to apply devconatiner's customization.")
 
 (defun devcontainer--docker-path ()
   "Return the path of the Docker-compatible command to call.
@@ -660,11 +678,32 @@ FILENAME and ARGS are just passed."
   "Read the customizations from `devcontainer.json' and apply them."
   (when-let* ((config (devcontainer--read-devcontainer-json))
               (customizations (gethash "customizations" config))
-              (emacs-customizations (gethash "emacs" customizations)))
+              (emacs-customizations (gethash "emacs" customizations))
+              (_ (devcontainer--apply-configuration-requested-p)))
     (devcontainer--apply-customizations emacs-customizations)
     (when-let* ((mode-specific-customizations (gethash "modes" emacs-customizations)))
       (dolist (key (devcontainer--sorted-mode-keys mode-specific-customizations))
         (devcontainer--apply-mode-specific-customizations key (gethash key mode-specific-customizations))))))
+
+(defun devcontainer--apply-configuration-requested-p ()
+  "Non-nil if the devcontainer's customization is to be applied."
+  (or (eq devcontainer-apply-customization 'always)
+      (and (eq devcontainer-apply-customization 'ask)
+           (devcontainer--ask-configuration-or-cached))))
+
+(defun devcontainer--ask-configuration-or-cached ()
+  "Ask whether to apply devcontainer's customization if answer not cached."
+  (if-let ((cached (assoc (project-current) devcontainer--customization-request-cache-alist)))
+      (cdr cached)
+    (let ((answer (y-or-n-p "Apply container customizations for this project? ")))
+      (push (cons (project-current) answer) devcontainer--customization-request-cache-alist)
+      answer)))
+
+(defun devcontainer-forget-current-project-customization-policy ()
+  "Forget the decision about whether to apply `devcontainer.json' customizations."
+  (interactive)
+  (setq devcontainer--customization-request-cache-alist
+        (assoc-delete-all (project-current) devcontainer--customization-request-cache-alist)))
 
 (defun devcontainer--sorted-mode-keys (mode-specific-customizations)
   "Return the sorted keys of MODE-SPECIFIC-CUSTOMIZATIONS."
@@ -806,6 +845,15 @@ a compatible way to `devcontainer-post-startup-hook'.
      (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
   (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user container-name remote-workdir)))
     (dired vec)))
+
+
+(when (boundp 'savehist-additional-variables)
+  (if (bound-and-true-p savehist-loaded)
+      (add-to-list 'savehist-additional-variables 'devcontainer--customization-request-cache-alist)
+    (add-hook 'savehist-mode-hook
+              (lambda()
+                (add-to-list 'savehist-additional-variables 'devcontainer--customization-request-cache-alist)))))
+
 
 (provide 'devcontainer)
 

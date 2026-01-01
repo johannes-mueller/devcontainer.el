@@ -2,6 +2,7 @@
 (require 'devcontainer)
 
 (setq python-indent-guess-indent-offset-verbose nil)
+(setq devcontainer-apply-customization 'always)
 
 (defmacro fixture-tmp-dir (test-repo &rest body)
   (declare (indent 1))
@@ -9,7 +10,8 @@
           (real-project-root-dir (concat (file-name-as-directory tmp-dir) "project"))
           (project-root-dir "~/project/")
           (devcontainer--project-info nil)
-          (home-dir (getenv "HOME")))
+          (home-dir (getenv "HOME"))
+          (devcontainer--customization-request-cache-alist nil))
      (make-directory real-project-root-dir)
      (shell-command-to-string (format "tar -xf test/%s.tar --directory %s" ,test-repo real-project-root-dir))
      (setenv "HOME" tmp-dir)
@@ -962,11 +964,59 @@
         (should (eq fill-column 70))
         (should (equal ispell-current-dictionary "esperanto"))))))
 
-(ert-deftest container-simple-mode-on-fill-column-80-customization ()
+(ert-deftest container-simple-mode-on-fill-column-80-customization-always ()
   (devcontainer-mode 1)
   (fixture-tmp-dir "test-repo-fill-column-config-80"
     (with-current-buffer (find-file-noselect "some-file-3.txt")
       (should (eq fill-column 80)))))
+
+(ert-deftest container-simple-mode-on-fill-column-80-customization-never ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (let ((devcontainer-apply-customization 'never))
+      (with-current-buffer (find-file-noselect "some-file-3.txt")
+        (should (eq fill-column 70))))))
+
+(ert-deftest container-simple-mode-on-fill-column-80-customization-ask-yes ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (let ((devcontainer-apply-customization 'ask))
+      (mocker-let ((y-or-n-p (prompt)
+                             ((:input '("Apply container customizations for this project? ")
+                               :output t
+                               :occur 1))))
+        (with-current-buffer (find-file-noselect "some-file-3.txt")
+          (should (eq fill-column 80)))
+        (with-current-buffer (find-file-noselect "some-file-4.txt")
+          (should (eq fill-column 80)))))))
+
+(ert-deftest container-simple-mode-on-fill-column-80-customization-ask-no ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (let ((devcontainer-apply-customization 'ask))
+      (mocker-let ((y-or-n-p (prompt)
+                             ((:input '("Apply container customizations for this project? ")
+                               :output nil
+                               :occur 1))))
+        (with-current-buffer (find-file-noselect "some-file-3.txt")
+          (should (eq fill-column 70)))
+        (with-current-buffer (find-file-noselect "some-file-4.txt")
+          (should (eq fill-column 70)))))))
+
+(ert-deftest container-simple-mode-on-fill-column-80-customization-ask-and-forget ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-fill-column-config-80"
+    (let ((devcontainer-apply-customization 'ask))
+      (mocker-let ((y-or-n-p (prompt)
+                             ((:input '("Apply container customizations for this project? ")
+                               :output t
+                               :occur 2))))
+        (with-current-buffer (find-file-noselect "some-file-3.txt")
+          (should (eq fill-column 80)))
+        (devcontainer-forget-current-project-customization-policy)
+        (with-current-buffer (find-file-noselect "some-file-4.txt")
+          (should (eq fill-column 80)))))))
+
 
 (ert-deftest container-simple-mode-on-fill-column-79-customization ()
   (devcontainer-mode 1)
