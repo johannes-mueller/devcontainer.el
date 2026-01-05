@@ -164,9 +164,8 @@ Otherwise, raise an `error'."
 
 (defun devcontainer--root ()
   "Deduce the root directory of the current project."
-  (if-let ((proj (project-current)))
-      (expand-file-name (project-root proj))
-    (user-error "Not in a project")))
+  (when-let ((proj (project-current)))
+      (expand-file-name (project-root proj))))
 
 (defun devcontainer-config-files ()
   "Get the JSON config files for the current project.

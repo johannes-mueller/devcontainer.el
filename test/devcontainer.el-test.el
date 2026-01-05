@@ -956,6 +956,12 @@
     (with-current-buffer (find-file-noselect "some-file-1.txt")
       (should (eq fill-column 70)))))
 
+(ert-deftest container-simple-mode-no-project ()
+  (devcontainer-mode 1)
+  (mocker-let ((project-current () ((:output nil))))
+    (with-current-buffer (find-file-noselect "some-file-0.txt")
+      (should 'not-fail))))
+
 (ert-deftest container-simple-mode-on-no-customization ()
   (devcontainer-mode 1)
   (let ((ispell-current-dictionary "esperanto"))
