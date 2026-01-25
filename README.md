@@ -1,4 +1,8 @@
 [![Tests](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/test.yml)
+[![Package
+linting](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/package-lint-checkdoc.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/package-lint-checkdoc.yml)
+[![melpazoid](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/melpazoid.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/melpazoid.yml)
+[![MELPA](https://melpa.org/packages/devcontainer-badge.svg)](https://melpa.org/#/devcontainer)
 
 # devcontainer.el
 

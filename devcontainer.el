@@ -1,5 +1,7 @@
 ;;; devcontainer.el --- Support for devcontainer -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2025-2026 Johannes Mueller
+
 ;; Author: Johannes Mueller <github@johannes-mueller.org>
 ;; URL: https://github.com/johannes-mueller/devcontainer.el
 ;; Version: 0.1.0
