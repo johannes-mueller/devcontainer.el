@@ -166,7 +166,11 @@ probably also [docker compose](https://docs.docker.com/compose/).
 
 ### Installing the package
 
-At the moment the most convenient method to install it is using
+Easiest way to install is from [MELPA](https://melpa.org).  If you have
+configured the MELPA sources you can just install the `devcontainer`
+package using the `package-install` command.
+
+You can of course also use
 [straight.el](https://github.com/raxod502/straight.el). Put the following lines
 into your startup file.
 
