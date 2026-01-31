@@ -830,21 +830,22 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
     (replace-match "\\1\\2")))
 
 ;;;###autoload
-(defun devcontainer-tramp-dired (_container-id container-name remote-user remote-workdir)
+(defun devcontainer-tramp-dired (container-id container-name remote-user remote-workdir)
   "Open a Dired window inside devcontainer's working folder.
 
 When called interactively, all the arguments are determined
 automatically.  The arguments for the non-interactive call are set up in
 a compatible way to `devcontainer-post-startup-hook'.
 
+* CONTAINER-ID – a string representing the container id
 * CONTAINER-NAME – a string representing the container-name
 * REMOTE-USER – a string of the remote user name
 * REMOTE-WORKDIR – the workdir path in the container."
   (interactive
-   (if (not (devcontainer-up-container-id))
-       (user-error "No running devcontainer for current project")
-     (list nil (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))))
-  (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user container-name remote-workdir)))
+   (if-let ((container-id (devcontainer-up-container-id)))
+       (list container-id (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))
+     (user-error "No running devcontainer for current project")))
+  (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user (or container-id container-name) remote-workdir)))
     (dired vec)))
 
 
