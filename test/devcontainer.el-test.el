@@ -898,24 +898,28 @@
       (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
 
 (ert-deftest devcontainer--tramp-dired-non-interactive-docker-default ()
-  (mocker-let ((dired (path) ((:input '("/docker:user_name@container_name:/workdir/path")))))
+  (mocker-let ((dired (path) ((:input '("/docker:user_name@abc:/workdir/path")))))
     (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
 
 (ert-deftest devcontainer--tramp-dired-non-interactive-podman ()
   (let ((devcontainer-engine 'podman))
-    (mocker-let ((dired (path) ((:input '("/podman:user_name@container_name:/workdir/path")))))
+    (mocker-let ((dired (path) ((:input '("/podman:user_name@abc:/workdir/path")))))
      (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path"))))
+
+(ert-deftest devcontainer--tramp-dired-non-interactive-fallback-to-name ()
+  (mocker-let ((dired (path) ((:input '("/docker:user_name@container_name:/workdir/path")))))
+    (devcontainer-tramp-dired nil "container_name" "user_name" "/workdir/path")))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-not-running ()
   (mocker-let ((devcontainer-up-container-id () ((:output nil))))
     (should-error (call-interactively #'devcontainer-tramp-dired))))
 
 (ert-deftest devcontainer--tramp-dired-devcontainer-is-running ()
-  (mocker-let ((devcontainer-up-container-id () ((:output t)))
+  (mocker-let ((devcontainer-up-container-id () ((:output "auto-container-id")))
                (devcontainer-container-name () ((:output "auto-container-name")))
                (devcontainer-remote-user () ((:output "auto-remote-user")))
                (devcontainer-remote-workdir () ((:output "/auto-remote-workdir")))
-               (dired (path) ((:input '("/docker:auto-remote-user@auto-container-name:/auto-remote-workdir")))))
+               (dired (path) ((:input '("/docker:auto-remote-user@auto-container-id:/auto-remote-workdir")))))
     (call-interactively #'devcontainer-tramp-dired)))
 
 (ert-deftest devcontainer--call-engine-string-sync-null-result ()
