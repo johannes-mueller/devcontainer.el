@@ -292,10 +292,10 @@ Evaluates `devcontainer-execution-buffer-naming'"
 (defun devcontainer-execute-command (command)
   "Execute COMMAND in the container – batch mode."
   (interactive (devcontainer--execute-interactive-args))
-  (devcontainer--do-execute-command-buffer
-   (split-string-shell-command command)
-   (format "DevC %s" (devcontainer--make-execution-buffer-name command))
-   'insert-cli))
+  (let ((command (string-trim command)))
+    (devcontainer--do-execute-command-buffer (split-string-shell-command command)
+    (format "DevC %s" (devcontainer--make-execution-buffer-name command))
+    'insert-cli)))
 
 (defun devcontainer--do-execute-command-buffer (command buffer-name &optional insert-cli)
   "Execute COMMAND in a new buffer named BUFFER-NAME.
