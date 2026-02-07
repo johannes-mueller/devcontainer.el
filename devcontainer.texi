@@ -129,6 +129,83 @@ If @command{devcontainer-mode} is activated it refrains from advising
 @command{compile} functions, if the current buffer is a file inside the
 devcontainer.
 
+@section Customizations of the devcontainer
+Devcontainers can demand customizations to the user's IDE.  That is useful to
+ensure that all the IDEs of all the teams members are aligned.  Whereas in the
+VSCode world you can also request extension packages to be installed when
+working on the devcontainer driven project, this Emacs package only allows you
+to set Emacs variables and call Emacs functions when opening a file that
+belongs to a devcontainer driven project.
+
+Customizations are defined in the @code{customization} section of
+@code{devcontainer.json} file.  For every IDE supporting devcontainers can
+there can be a subsection.  To set variables for buffers of the project you can
+use the @code{emacs} subsection.  In order to set the variable
+@var{fill-column} you can use the following example.
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+            "fill-column": 79
+        }
+    }
+}
+@end verbatim
+
+Also mode specific settings are possible.  The following example sets
+@code{fill-column} to 79 for @code{text-mode}, to 88 for @code{python-mode}
+and to 80 for all other modes.
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+	    "modes": {
+		"text-mode": {
+		    "fill-column": 79
+		},
+		"python-mode": {
+		    "fill-column": 88
+		}
+            },
+	    "fill-column": 80
+	}
+    }
+}
+@end verbatim
+
+Note that derived modes are also affected from those settings if they don't
+override it.  In the above example the @var{fill-column} is also set to 79 in
+@code{markdown-mode} as @code{markdown-mode} is a derived mode of
+@code{text-mode}.
+
+In order to perform commands as customization you can use lisp commands as
+variable name and letting the value @code{null} like so:
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+	    "(auto-fill-mode -1)": null
+        }
+    }
+}
+@end verbatim
+
+So theoretically you could perform complicated lisp code there and even install
+packages.  However it is strongly discouraged to do anything more than setting
+variables and ensuring that minor modes are switched on or off.
+
+This customization mechanism in principle allows authors of the project to
+perform any lisp code on you Emacs.  That is a potential security risk.  So you
+can decide if you want to trust projects that you work on or not.  You can do
+that setting @var{devcontainer-apply-customization}.
+
+
 @node Configuration
 @chapter Configuration
 The following things are customizable at this point. For a complete list
