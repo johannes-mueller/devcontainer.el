@@ -912,6 +912,12 @@
     (mocker-let ((devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
       (should (equal (devcontainer-remote-workdir) "/workspaces/project/")))))
 
+(ert-deftest devcontainer--broken-devcontainer-json ()
+  (fixture-tmp-dir "test-repo-devcontainer-broken-json"
+    (mocker-let ((message (msg) ((:input '("Broken json in devcontainer.json"))))
+                 (devcontainer--root () ((:output (file-name-as-directory real-project-root-dir)))))
+      (should (eq (devcontainer-remote-workdir) nil)))))
+
 (ert-deftest devcontainer--tramp-dired-non-interactive-docker-default ()
   (mocker-let ((dired (path) ((:input '("/docker:user_name@abc:/workdir/path")))))
     (devcontainer-tramp-dired "abc" "container_name" "user_name" "/workdir/path")))
@@ -988,6 +994,13 @@
       (with-current-buffer (find-file-noselect "some-file-2.txt")
         (should (eq fill-column 70))
         (should (equal ispell-current-dictionary "esperanto"))))))
+
+(ert-deftest container-simple-mode-on-broken-json-customization ()
+  (devcontainer-mode 1)
+  (fixture-tmp-dir "test-repo-devcontainer-broken-json"
+    (mocker-let ((message (msg) ((:input '("Broken json in devcontainer.json")))))
+      (with-current-buffer (find-file-noselect "some-file-2.txt")
+        (should 'not-fail)))))
 
 (ert-deftest container-simple-mode-on-fill-column-80-customization-always ()
   (devcontainer-mode 1)
