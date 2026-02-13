@@ -818,7 +818,11 @@ https://containers.dev/implementors/json_reference/#variables-in-devcontainerjso
     (with-temp-buffer
       (insert-file-contents (concat (file-name-as-directory (devcontainer--root)) devcontainer-json-file))
       (devcontainer--bust-json-comments-in-buffer)
-      (json-parse-string (buffer-string)))))
+      (condition-case nil
+          (json-parse-string (buffer-string))
+        (json-parse-error (progn
+                            (message "Broken json in devcontainer.json")
+                            nil))))))
 
 (defun devcontainer--determine-workspace-folder-from-container ()
   "Determine the remote workdir in the devcontainer."
