@@ -17,7 +17,8 @@ jobs:
         run: |
           texi2any --html \
                    --no-number-sections \
-                    --css-ref /style.css \
+                   --css-ref /style.css \
+                   --init-file no-inline-css.pm \
                    devcontainer.texi
 
       - name: Upload static files as artifact
