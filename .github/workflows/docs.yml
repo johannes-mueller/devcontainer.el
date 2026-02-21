@@ -17,8 +17,12 @@ jobs:
         run: |
           texi2any --html \
                    --no-number-sections \
-                    --css-ref /style.css \
+                   --css-ref style.css \
+                   --init-file docs/no-inline-css.pm \
                    devcontainer.texi
+
+      - name: copying html assets
+        run: cp docs/style.css devcontainer_html
 
       - name: Upload static files as artifact
         id: deployment
