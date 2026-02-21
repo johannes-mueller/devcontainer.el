@@ -1,0 +1,39 @@
+
+* {
+    font-family: sans-serif;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 2em;
+}
+
+a:hover {
+    background: #eee;
+}
+
+code {
+    font-family: monospace;
+}
+var {
+    font-family: monospace;
+    font-style: italic;
+}
+
+pre {
+    font-family: monospace;
+    background: #eee;
+}
+
+div.example {
+    margin:
+}
+
+
+@media (min-width: 80em) {
+    body {
+	width: 80em;
+    }
+}
