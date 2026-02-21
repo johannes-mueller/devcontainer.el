@@ -13,6 +13,21 @@ body {
 a:hover {
     background: #eee;
 }
+a.copiable-link {
+    visibility: hidden;
+    text-decoration: none;
+    line-height: 0em
+}
+
+div.example, pre.verbatim {
+    margin: 0.5em 3em;
+    padding: 0.5em 1em;
+    background: #eee;
+}
+
+span:hover a.copiable-link {
+    visibility: visible
+}
 
 code {
     font-family: monospace;
@@ -24,11 +39,6 @@ var {
 
 pre {
     font-family: monospace;
-    background: #eee;
-}
-
-div.example {
-    margin:
 }
 
 
