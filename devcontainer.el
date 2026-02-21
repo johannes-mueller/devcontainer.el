@@ -75,7 +75,9 @@ The hook functions should have four parameters:
   "The file passed to the `--secrets-file' option of the `devcontainer up' command.
 
 The file can be defined either with an absolute path or relative to the
-devcontainer's workspace folder AKA the project's root directory."
+devcontainer's workspace folder AKA the project's root directory.  It
+must be a JSON file containing key/value pairs that will appear in the
+startup process as environment variables."
   :group 'devcontainer
   :type 'file)
 

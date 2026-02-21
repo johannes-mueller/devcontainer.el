@@ -163,6 +163,7 @@ npm install -g @devcontainers/cli
 
 Of course you also need a working [docker](https://docker.com) installation and
 probably also [docker compose](https://docs.docker.com/compose/).
+Alternatively you can also use [podman](https://podman.io/).
 
 ### Installing the package
 

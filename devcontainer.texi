@@ -11,6 +11,12 @@
 
 Rudimentary devcontainer support for Emacs
 
+This package lets you handle i.e.@ start, restart devcontainers of your
+projects and forwards all your @command{compile} commands into the
+devcontainer by advising @command{compilation-start}. So as long you use
+@command{compile} to build, test and run (parts of your) software, all will
+be executed inside the devcontainer.
+
 @menu
 * Introduction::
 * Usage::
@@ -20,14 +26,8 @@ Rudimentary devcontainer support for Emacs
 @node Introduction
 @chapter Introduction
 
-@section Synopsis
-This package lets you handle i.e.@ start, restart devcontainers of your
-projects and forwards all your @command{compile} commands into the
-devcontainer by advising @command{compilation-start}. So as long you use
-@command{compile} to build, test and run (parts of your) software, all will
-be executed inside the devcontainer.
 
-@subsection What are devcontainers?
+@section What are devcontainers?
 @uref{https://containers.dev/,Devcontainers} become increasingly popular
 in modern software development. The idea is to put everything the
 software you are developing needs in order to run into a docker
@@ -41,7 +41,7 @@ run the complete tooling inside the container, even their IDE. The
 configuration of the IDE -- i.e.@ which extensions are to be installed
 -- is also defined by the definition of the devcontainer.
 
-@subsection Approach for support in Emacs
+@section Approach for support in Emacs
 While you technically don't need to use devcontainers even though your
 team is using them, it is convenient for you also to use devcontainers
 at least to some degree. Of course, you won't install an Emacs instance
@@ -65,43 +65,91 @@ performed inside your devcontainer.
 
 
 @node Usage
+
+@chapter Setup
+You need to have the @uref{https://github.com/devcontainers/cli,devcontainers/cli}
+command line tool installed into your execution path.  For that you need a
+working node/npm setup.  Then you can install the tool with
+
+@example
+npm install -g @@devcontainers/cli
+@end example
+
+Of course you also need a working @uref{https://docker.com,docker} installation
+and probably also @uref{https://docs.docker.com/compose/,docker}.
+Alternatively you can also use @uref{https://podman.io/,podman}.
+
+
 @chapter Usage
 
-If you want to make use of devcontainers you can generally have
-@command{devcontainer-mode} activated.  It recognizes if a project needs or
-supports devcontainers and then automatically forwards commands to the
-devcontainer.
+@section Activate @command{devcontainer-mode}
+
+In order to use devcontainers you should activate @command{devcontainer-mode}.
+It is a global major mode that recognizes if a project needs or supports
+devcontainers and then automatically forwards commands to the devcontainer.
+
+
+@section Commands
 
 There are couple of commands to start and stop devcontainers.  They are pretty
 straight forward.
 
-@itemize
-@item
-@command{devcontainer-up} starts the devcontainer of the current project.
 
-@item
+@subsection Launching the devcontainer @command{devcontainer-up}
+
+@command{devcontainer-up} starts the devcontainer of the current
+project. Usually you would use it to start the devcontainer, when you start
+working on a project after relaunching your computer.  You'll get a
+notification in the echo area as soon as the container is launched.  In order
+to examine failures you can examine the buffer @code{*devcontainer startup*}.
+
+If the startup of the container needs secrets to access resources like package
+dependencies you can define a file where these secrets are stored in
+@var{devcontainer-startup-secrets-file}.
+
+If there is no image for the container available on your system it is built
+according the the project's devcontainer definition.  Note that this command
+does not rebuild the container.  Nothing will be updated.  The software state
+will be the same as when the container has been built lastly.
+
+
+@subsection Restarting the container
+
 @command{devcontainer-restart} stops and restart the devcontainer of the
-current project.
+current project without rebuilding it.  There is actually one rare use case and
+that is when the container reached a state which can only or easiest be reset
+by a reastart.
 
-@item
 @command{devcontainer-rebuild-and-restart} stops the current project's
-devcontainer, deletes its docker images and rebuilds it.  This is useful,
-when you for example changed the @code{Dockerfile} of your devcontainer.
+devcontainer, deletes its docker images and rebuilds it.  This is useful, when
+you for example changed the @code{Dockerfile} of your devcontainer.  However,
+it also does not rebuild or update the containers that are defined as other
+services in @code{docker-compose.yml} in the project's devcontainer definition.
 
-@item
-@command{devcontainer-execute-command} execute an arbitrary command
+
+@subsection Starting programs inside the devcontainer
+
+@command{devcontainer-execute-command} executes an arbitrary command
 inside the devcontainer.  This is meant for long running, non-interactive
-commands like running a server or some kind of batch job.
+commands like running a server or some kind of batch job.  When called
+interactively it prompts for a command.
 
-@item
+
 @command{devcontainer-execute-command-interactive} execute an arbitrary command
 inside the devcontainer interactively.  This is meant for interactive commands
-that you would run in a terminal.
+that you would run in a terminal.  When called interactively it prompts for a
+command.
 
-@item
-@command{devcontainer-term} launches a terminal inside the container.
+@command{devcontainer-term} provides a terminal for a shell inside the
+container.  By default it tries to launch the @code{bash} shell.  You can
+customize that by the @var{devcontainer-term-shell}.  If you experience wired
+control sequences in your terminal you might want to adjust the @code{TERM}
+variable inside the container using
 
-@end itemize
+@lisp
+(setq devcontainer-term-environment '(("TERM" . "xterm-256color")))
+@end lisp
+
 
 @section Forwarding commands that are not using @command{compile}
 If you need to forward some process call into the devcontainer which is
@@ -116,6 +164,7 @@ available and if the command modification is advisable.
 (funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
 @end lisp
 
+
 @section Using TRAMP
 An alternative way of using the package is to edit the files inside the
 container itself using Emacs' builtin
@@ -129,43 +178,132 @@ If @command{devcontainer-mode} is activated it refrains from advising
 @command{compile} functions, if the current buffer is a file inside the
 devcontainer.
 
+
+@section Customizations of the devcontainer
+Devcontainers can demand customizations to the user's IDE.  That is useful to
+ensure that all the IDEs of all the teams members are aligned.  Whereas in the
+VSCode world you can also request extension packages to be installed when
+working on the devcontainer driven project, this Emacs package only allows you
+to set Emacs variables and call Emacs functions when opening a file that
+belongs to a devcontainer driven project.
+
+Customizations are defined in the @code{customization} section of
+@code{devcontainer.json} file.  For every IDE supporting devcontainers can
+there can be a subsection.  To set variables for buffers of the project you can
+use the @code{emacs} subsection.  In order to set the variable
+@var{fill-column} you can use the following example.
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+            "fill-column": 79
+        }
+    }
+}
+@end verbatim
+
+Also mode specific settings are possible.  The following example sets
+@code{fill-column} to 79 for @code{text-mode}, to 88 for @code{python-mode}
+and to 80 for all other modes.
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+	    "modes": {
+		"text-mode": {
+		    "fill-column": 79
+		},
+		"python-mode": {
+		    "fill-column": 88
+		}
+            },
+	    "fill-column": 80
+	}
+    }
+}
+@end verbatim
+
+Note that derived modes are also affected from those settings if they don't
+override it.  In the above example the @var{fill-column} is also set to 79 in
+@code{markdown-mode} as @code{markdown-mode} is a derived mode of
+@code{text-mode}.
+
+In order to perform commands as customization you can use lisp commands as
+variable name and letting the value @code{null} like so:
+
+@verbatim
+{
+    ...
+    "customizations": {
+        "emacs": {
+	    "(auto-fill-mode -1)": null
+        }
+    }
+}
+@end verbatim
+
+So theoretically you could perform complicated lisp code there and even install
+packages.  However it is strongly discouraged to do anything more than setting
+variables and ensuring that minor modes are switched on or off.
+
+This customization mechanism in principle allows authors of the project to
+perform any lisp code on you Emacs.  That is a potential security risk.  So you
+can decide if you want to trust projects that you work on or not.  You can do
+that setting @var{devcontainer-apply-customization}.
+
+
 @node Configuration
 @chapter Configuration
+
 The following things are customizable at this point. For a complete list
 of configuration options refer to the @command{devcontainer} configuration
 group.
 
-@itemize
-@item
-@var{devcontainer-execute-outside-container} -- a list of programs, not
-to be executed inside the container but on the host system. Used for
-things like @command{grep}.
 
-@item
-@var{devcontainer-post-startup-hook} -- a hook variable that can
-provide functions that are called after the container has been started.
-They take a couple of arguments. See the functions' documentation for
-details.
+@section General configuration and startup
+
+
+@var{devcontainer-engine} defines the container engine you want to use.  The
+options are either @code{'docker} (default) or @code{'podman}.
+
+
+@var{devcontainer-startup-secrets-file} defines the file that is passed to the
+@command{devcontainer} command as @code{--secrets-file} option.  It can be used
+to inject environment variable into the built/startup process of the container
+without putting them into the container definition.  Thus secrets like tokens
+to access resources like package dependencies don't need to be put into the
+code base.
+
+
+@var{devcontainer-apply-customization} defines whether to apply the
+customization defined for Emacs in @code{devcontainer.json}.  By default
+(@code{'ask}) it will ask you if you want to apply it.  Other options are
+@code{'always} and @code{'never}.  For trusted projects you can set it project
+local in @code{.dir-locals.el}.
+
+
+@var{devcontainer-post-startup-hook} is a hook variable that can provide
+functions that are called after the container has been started.  They take a
+couple of arguments. It receives information on the devcontainer as parameters.
+See the functions' documentation for details.
 
 One example use case is to hook in the function
 @var{devcontainer-tramp-dired} to open a @command{dired} window inside the
 container right after the start of the container.
 
-@item
-@var{devcontainer-engine} -- the container engine you want to use. Can
-be either @code{'docker} (default) or @code{'podman}
 
-@item
-There are @var{devcontainer-term-command},
+@section Command execution inside the container
+
+@var{devcontainer-execute-outside-container}.  Maybe you don't want to execute
+all programs that Emacs launches by the @command{compile} command insider the
+container.  For example programs like @command{grep} are preferably launched
+outside the container.  You can set list of programs, not to be executed inside
+the container but on the host system.
+
+There are the customization variables  @var{devcontainer-term-command},
 @var{devcontainer-term-shell} and @var{devcontainer-term-environment}
 to customize the terminal launched by @command{devcontainer-term}.
-
-@end itemize
-
-If you experience weird control sequence output due to the bash
-prompt inside the devcontainer, you can try modifying the @code{TERM}
-variable by
-
-@verbatim
-(setq devcontainer-term-environment '(("TERM" . "xterm-256color")))
-@end verbatim
