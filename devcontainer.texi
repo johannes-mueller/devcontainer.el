@@ -6,6 +6,42 @@
 @documentlanguage en
 @c %**end of header
 
+@copying
+@quotation
+Copyright (C) 2025 - 2026 Johannes Mueller <github@@johannes-mueller.org>
+
+You can redistribute this document and/or modify it under the terms
+of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This document is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE@.  See the GNU
+General Public License for more details.
+
+@end quotation
+@end copying
+
+
+@dircategory Emacs
+@direntry
+* devcontainer: (devcontainer).       Working on projects that use a devcontainer
+@end direntry
+
+@finalout
+@titlepage
+@title devcontainer.el User Manual
+@subtitle Rudimentary devcontainer support for Emacs
+@author Johannes Mueller
+@page
+@insertcopying
+@end titlepage
+
+
+@contents
+
+
 @node Top
 @top The package devcontainer.el
 
