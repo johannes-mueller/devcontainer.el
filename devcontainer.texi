@@ -17,6 +17,15 @@ devcontainer by advising @command{compilation-start}. So as long you use
 @command{compile} to build, test and run (parts of your) software, all will
 be executed inside the devcontainer.
 
+@quotation
+Please consider this package experimental as long as there is no release yet.
+There might be breaking changes like changing function and variable names out
+of the blue.  So please consider checking the git history when updating.
+@end quotation
+
+Source code: @uref{https://github.com/johannes-mueller/devcontainer.el}
+
+
 @menu
 * Usage::
 * Configuration::

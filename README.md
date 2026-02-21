@@ -2,6 +2,7 @@
 [![Package
 linting](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/package-lint-checkdoc.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/package-lint-checkdoc.yml)
 [![melpazoid](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/melpazoid.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/melpazoid.yml)
+[![Documentation](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/docs.yml/badge.svg)](https://github.com/johannes-mueller/devcontainer.el/actions/workflows/docs.yml)
 [![MELPA](https://melpa.org/packages/devcontainer-badge.svg)](https://melpa.org/#/devcontainer)
 
 # devcontainer.el
@@ -15,6 +16,10 @@ This package lets you handle i.e. start, restart devcontainers of your projects
 and forwards all your `compile` commands into the devcontainer by advising
 `compilation-start`.  So as long you use `compile` to build, test and run
 (parts of your) software, all will be executed inside the devcontainer.
+
+
+The the [documentation](https://johannes-mueller.github.io/devcontainer.el/) on
+how to setup and use the package.
 
 
 ## Motivation
@@ -57,7 +62,7 @@ kind of `compile` command, it is actually performed inside your devcontainer.
 
 ## Status
 
-Development started a couple of months ago.  Since then it has been of big help
+Development started about a year ago.  Since then it has been of big help
 to me in my day job programming.  With my usual workflows, the packages just
 does its job and otherwise stays out of my way.  As I don't tend to experiment
 that much with edge cases, I might not be aware of caveats, when different
@@ -71,83 +76,6 @@ If you experience any issues, please report them back in the issue tracker.
 > There might be breaking changes like changing function and variable names out
 > of the blue.  So please consider checking the git history when updating.
 
-
-## Usage
-
-`devcontainer` provides multiple commands to interact with devconntainers. For
-a full list refer to the documentation of functions named `devcontainer-...`.
-The important ones are:
-
-* `devcontainer-mode` – a globally activated minor mode, that you can just have
-  always activated.
-* `devcontainer-up` – start the devcontainer of the current project.
-* `devcontainer-restart` – stop and restart the devcontainer of the current
-  project.
-* `devcontainer-rebuild-and-restart` – stop the current project's devcontainer,
-  delete its docker images and rebuild it.  This is useful, when you for
-  example changed the `Dockerfile` of your devcontainer.
-* `devcontainer-execute-command` – execute an arbitrary command inside the
-  devcontainer.
-* `devcontainer-term` – launch a terminal inside the container.
-
-
-### Forwarding commands that are not using `compile`
-
-If you need to forward some process call into the devcontainer which is not
-done by the `compile` command of Emacs, you can use
-`devcontainer-advise-command` to prepend the `devcontainer exec` call in front
-of your command.  If you are not sure if `devcontainer` is always available you
-can use the following call, which modifies your command if `devcontainer` is
-available and if the command modification is advisable.
-
-```elisp
-(funcall (or (symbol-function 'devcontainer-advise-command) #'identity) command)
-```
-
-### Using TRAMP
-
-An alternative way of using the package is to edit the files inside the
-container itself using Emacs' builtin
-[TRAMP](https://www.gnu.org/software/tramp/) facility. There are pros and cons
-to it.  In order to use it, you can let `devcontainer-mode` deactivated and use
-the function `devcontainer-tramp-dired` to open a `dired` window inside the
-container. Then you can open files of your project inside the container.
-
-If `devcontainer-mode` is activated it refrains from advising `compile`
-functions, if the current buffer is a file inside the devcontainer.
-
-
-## Configuration
-
-The following things are customizable at this point. For a complete list of
-configuration options refer to the `devcontainer` configuration group.
-
-* `devcontainer-execute-outside-container` – a list of programs, not to be
-  executed inside the container but on the host system. Used for things like
-  `grep`.
-
-* `devcontainer-post-startup-hook` – a hook variable that can provide functions
-  that are called after the container has been started. They take a couple of
-  arguments. See the functions' documentation for details.
-
-  One example use case is to hook in the function `devcontainer-tramp-dired` to
-  open a `dired` window inside the container right after the start of the
-  container.
-
-* `devcontainer-engine` – the container engine you want to use. Can be either
-  `'docker` (default) or `'podman`
-
-* There are `devcontainer-term-command`, `devcontainer-term-shell` and
-  `devcontainer-term-environment` to customize the terminal launched by
-  `devcontainer-term`.
-
-> [!TIP]
-> If you experience weird control sequence output due to the bash prompt inside
-> the devcontainer, you can try modifying the `TERM` variable by
->
-> ```elisp
-> (setq devcontainer-term-environment '(("TERM" . "xterm-256color")))
-> ```
 
 ## Installation
 
@@ -179,13 +107,6 @@ into your startup file.
 (use-package devcontainer
   :straight (devcontainer :type git :host github :repo "johannes-mueller/devcontainer.el"))
 ```
-
-Then you have a bunch of commands prefixed with `devcontainer-` to have fun
-with devcontainers. As of now they are not documented. Documentation will be
-written once some practical experience is gained.
-
-Maybe you also want to install the `coterm` package and activate `coterm-mode`.
-Then the Docker output in the Emacs buffers gets way more readable.
 
 
 ## Plans
