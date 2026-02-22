@@ -19,7 +19,7 @@ a.copiable-link {
     line-height: 0em
 }
 
-div.example, pre.verbatim {
+div.example, pre.verbatim, blockquote {
     margin: 0.5em 3em;
     padding: 0.5em 1em;
     background: #eee;
