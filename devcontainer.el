@@ -479,9 +479,13 @@ programs from being executed inside the devcontainer."
   (if devcontainer-mode
       (progn
         (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
-        (advice-add 'find-file-noselect :around #'devcontainer--find-file-apply-customization-advice))
+        (advice-add 'find-file-noselect :around #'devcontainer--find-file-apply-customization-advice)
+        (advice-add 'eglot-path-to-uri :around #'devcontainer--path-to-uri-advice)
+        (advice-add 'eglot-uri-to-path :around #'devcontainer--uri-to-path-advice))
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)
-    (advice-remove 'find-file-noselect #'devcontainer--find-file-apply-customization-advice)))
+    (advice-remove 'find-file-noselect #'devcontainer--find-file-apply-customization-advice)
+    (advice-remove 'eglot-path-to-uri #'devcontainer--path-to-uri-advice)
+    (advice-remove 'eglot-uri-to-path #'devcontainer--uri-to-path-advice)))
 
 (defun devcontainer--set-current-project-state (state)
   "Set the current project's devcontainer state cache to STATE."
@@ -613,7 +617,7 @@ If IN-TERMINAL is non-nil, also the ones of
                        (cons nil (append (devcontainer-remote-environment)
                                          (when in-terminal devcontainer-term-environment)))))))
 
-(defun devcontainer-advice (&optional in-terminal)
+(defun devcontainer-advice (&optional interactive)
   "Determine the prefix that is to be used to run a command inside the container.
 
 If IN-TERMINAL is non nil, the \"-it\" flag is set."
@@ -624,10 +628,10 @@ If IN-TERMINAL is non nil, the \"-it\" flag is set."
              (list
               (symbol-name devcontainer-engine)
               "exec"
-              (when in-terminal "-it")
+              (pcase interactive ('in-terminal "-it") ('with-ipc "-i") (_ nil))
               "--workdir" (devcontainer-remote-workdir)
               (when remote-user "--user") remote-user)
-             (devcontainer--make-env-cli-args in-terminal)
+             (devcontainer--make-env-cli-args interactive)
              (list container-id))))))
 
 (defun devcontainer--fix-quoted-env-elements (command-string)
@@ -638,7 +642,7 @@ FOO=bar'.  `shell-quote-argument' quotes the `=' sign to `--env FOO\\=bar'.
 This reverts that quote."
   (replace-regexp-in-string "--env \\([a-zA-Z0-9_]+\\)\\\\=" "--env \\1=" command-string))
 
-(defun devcontainer-advise-command (command)
+(defun devcontainer-advise-command (command &optional interactive)
   "Prepend COMMAND with to run inside the container if possible.
 
 If COMMAND is a string, the advice is prefixed as a string.  If it is a
@@ -647,7 +651,7 @@ work no matter if it is used in `compile' or in other functions issuing
 commands to a shell."
   (if (and (devcontainer-advisable-p)
            (devcontainer--devcontainerize-command-p (if (stringp command) command (string-join command " "))))
-      (if-let ((advice (devcontainer-advice)))
+      (if-let ((advice (devcontainer-advice interactive)))
           (if (stringp command)
               (devcontainer--fix-quoted-env-elements
                (string-join (append (mapcar (lambda (el) (shell-quote-argument el nil)) advice) (list command)) " "))
@@ -659,6 +663,21 @@ commands to a shell."
   "Advise the function COMPILE-FUN by modifying COMMAND passing REST."
   (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
+
+(cl-defun devcontainer--path-to-uri-advice (path-to-uri-fun path &key truenamep)
+  (if (devcontainer-advisable-p)
+      (let* ((truepath (if truenamep path (file-truename path)))
+             (relative (file-relative-name truepath (devcontainer--root)))
+             (in-container (concat (devcontainer-remote-workdir) relative)))
+        (funcall path-to-uri-fun in-container :truenamep t))
+    (funcall path-to-uri-fun path :truenamep truenamep)))
+
+(defun devcontainer--uri-to-path-advice (uri-to-path-fun uri)
+  (let ((in-container (funcall uri-to-path-fun uri)))
+    (if (devcontainer-advisable-p)
+        (let ((relative (file-relative-name in-container (devcontainer-remote-workdir))))
+          (concat (devcontainer--root) relative))
+      in-container)))
 
 (defun devcontainer--devcontainerize-command-p (command)
   "Return t if COMMAND is to be run inside the container.
@@ -862,6 +881,10 @@ a compatible way to `devcontainer-post-startup-hook'.
               (lambda()
                 (add-to-list 'savehist-additional-variables 'devcontainer--customization-request-cache-alist)))))
 
+
+(defun devcontainer-eglot-server (eglot-server)
+  (lambda (_interactive _project-root)
+    (devcontainer-advise-command eglot-server 'with-ipc)))
 
 (provide 'devcontainer)
 
