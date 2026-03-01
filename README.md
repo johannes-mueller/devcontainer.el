@@ -113,14 +113,14 @@ into your startup file.
 
 - [X] See how it works in practice (it baisically works and is helpful)
 - [X] Fix things that don't work (see [issues](https://github.com/johannes-mueller/devcontainer.el/issues/))
-- [ ] Document things that work
+- [X] Document things that work
 - [ ] See if we find a way to reliably connect to a language server inside the
       container.  Maybe find inspiration from `eglot-booster-mode`.
 - [ ] See if we can get [dape](https://github.com/svaante/dape) to work with
   `devcontainer-mode`.
 - [ ] See if anything more is needed that can be implemented with a reasonable
   effort.
-- [ ] Announce it to [melpa](https://melpa.org/)
+- [X] Announce it to [melpa](https://melpa.org/)
 - [ ] Enjoy the `devcontainer` package in real life programming
 
 
