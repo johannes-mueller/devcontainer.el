@@ -870,9 +870,9 @@ a compatible way to `devcontainer-post-startup-hook'.
                 (add-to-list 'savehist-additional-variables 'devcontainer--customization-request-cache-alist)))))
 
 
-(defun devcontainer-eglot-server (eglot-server)
+(cl-defun devcontainer-eglot-server (eglot-server &key initializationOptions)
   (lambda (_interactive _project-root)
-    (devcontainer-advise-command eglot-server 'with-ipc)))
+    (append (devcontainer-advise-command eglot-server 'with-ipc) `(:initializationOptions ,initializationOptions))))
 
 (provide 'devcontainer)
 
