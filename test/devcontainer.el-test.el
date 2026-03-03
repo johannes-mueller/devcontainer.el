@@ -838,8 +838,12 @@
                  (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
                                                             "abcdef"
                                                             "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
-                                                   :output '("")))))
-      (should-not (devcontainer-remote-user)))))
+                                                   :output '(""))
+                                                  (:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{.Config.User}}")
+                                                   :output '("user_from_container")))))
+      (should (equal (devcontainer-remote-user) "user_from_container")))))
 
 (ert-deftest devcontainer--container-user-container-up-default-engine ()
   (fixture-tmp-dir "test-repo-devcontainer"
