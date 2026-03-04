@@ -434,14 +434,11 @@ of the devcontainer stack simply remain alive."
 (defun devcontainer-remove-container ()
   "Remove the primnary docker container of the current project."
   (interactive)
+  (when-let* ((container-id (devcontainer-up-container-id)))
+    (devcontainer--call-engine-string-sync "container" "kill" container-id))
   (when-let ((container-id (or (devcontainer-container-id)
                                (user-error "No container to be removed"))))
-    (devcontainer--call-engine-string-sync "container"
-                                           "kill"
-                                           container-id)
-    (devcontainer--call-engine-string-sync "container"
-                                           "rm"
-                                           container-id)
+    (devcontainer--call-engine-string-sync "container" "rm" container-id)
     (devcontainer--set-current-project-state 'devcontainer-is-needed)
     (message "Removed container %s" container-id)))
 
