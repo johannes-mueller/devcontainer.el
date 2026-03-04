@@ -114,7 +114,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should-not (devcontainer-up-container-id))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
@@ -123,7 +124,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output "abc" :occur 1))))
         (should (equal (devcontainer-up-container-id) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
@@ -500,7 +502,8 @@
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))
         (cmd '("container" "ls"
                "--filter=label=devcontainer.local_folder=/home/me/foo/bar"
-               "--format={{.ID}}")))
+               "--format={{.ID}}"
+               "--all=false")))
     (mocker-let ((devcontainer--call-engine-string-sync (&rest _cmd)
                                                         ((:input cmd :output "8af87509ac80" :occur 1)
                                                          (:input '("container" "kill" "8af87509ac80"))
@@ -819,7 +822,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should (equal (devcontainer--update-project-info) 'devcontainer-is-down))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))

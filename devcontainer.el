@@ -190,20 +190,18 @@ https://containers.dev/implementors/spec/#devcontainerjson"
 
 (defun devcontainer-container-id ()
   "Determine the id of the primary docker container of the current project."
-  (let ((get-ctr-id
-         (lambda (all)
-           (devcontainer--call-engine-string-sync
-            "container"
-            "ls"
-            (format
-             "--filter=label=devcontainer.local_folder=%s"
-             (directory-file-name (devcontainer--root)))
-            "--format={{.ID}}"
-            (format "--all=%s" (if all "true" "false"))))))
-    (and (devcontainer-container-needed-p)
-         (or
-          (funcall get-ctr-id nil)
-          (funcall get-ctr-id t)))))
+  (and (devcontainer-container-needed-p)
+       (or (devcontainer--container-id nil)
+           (devcontainer--container-id 'also-not-running))))
+
+(defun devcontainer--container-id (also-those-not-running)
+  "Determine the container id of current project maybe ALSO-THOSE-NOT-RUNNING."
+  (devcontainer--call-engine-string-sync
+   "container"
+   "ls"
+   (format "--filter=label=devcontainer.local_folder=%s" (directory-file-name (devcontainer--root)))
+   "--format={{.ID}}"
+   (format "--all=%s" (if also-those-not-running "true" "false"))))
 
 (defun devcontainer-container-name ()
   "Determine the name of the primary docker container of the current project."
@@ -228,12 +226,7 @@ https://containers.dev/implementors/spec/#devcontainerjson"
   "Return the devcontainer's container id if the container is up otherwise nil."
   (and (not (devcontainer--starting-or-failed))
        (devcontainer-container-needed-p)
-       (let ((output (devcontainer--call-engine-string-sync
-                      "container"
-                      "ls"
-                      (format "--filter=label=devcontainer.local_folder=%s"
-                              (directory-file-name (devcontainer--root)))
-                      "--format={{.ID}}")))
+       (let ((output (devcontainer--container-id nil)))
          (devcontainer--set-current-project-state 'devcontainer-is-down)
          (when output
            (devcontainer--set-current-project-state 'devcontainer-is-up))
@@ -424,9 +417,7 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let ((container-id (or (devcontainer-up-container-id)
                                (user-error "No container running"))))
-    (devcontainer--call-engine-string-sync "container"
-                                           "kill"
-                                           container-id)
+    (devcontainer--call-engine-string-sync "container" "kill" container-id)
     (devcontainer--update-project-info)
     (message "Killed container %s" container-id)))
 
