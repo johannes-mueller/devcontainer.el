@@ -114,7 +114,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should-not (devcontainer-up-container-id))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
@@ -123,7 +124,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output "abc" :occur 1))))
         (should (equal (devcontainer-up-container-id) "abc"))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-up))))))))
@@ -500,7 +502,8 @@
   (let ((devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-up)))
         (cmd '("container" "ls"
                "--filter=label=devcontainer.local_folder=/home/me/foo/bar"
-               "--format={{.ID}}")))
+               "--format={{.ID}}"
+               "--all=false")))
     (mocker-let ((devcontainer--call-engine-string-sync (&rest _cmd)
                                                         ((:input cmd :output "8af87509ac80" :occur 1)
                                                          (:input '("container" "kill" "8af87509ac80"))
@@ -523,11 +526,23 @@
         (should (eq (car report) 'user-error))
         (should (equal (cadr report) "No container running")))))
 
-(ert-deftest remove-container-existent ()
+(ert-deftest remove-container-existent-running ()
   (setq devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))
-  (mocker-let ((devcontainer-container-id () ((:output "8af87509ac80")))
+  (mocker-let ((devcontainer-up-container-id () ((:output "8af87509ac80")))
+               (devcontainer-container-id () ((:output "8af87509ac80")))
                (project-current () ((:output '(foo . "~/foo/bar/"))))
                (devcontainer--call-engine-string-sync (&rest cmd) ((:input '("container" "kill" "8af87509ac80"))
+                                                                   (:input '("container" "rm" "8af87509ac80"))))
+               (message (tmpl container-id) ((:input '("Removed container %s" "8af87509ac80")))))
+    (devcontainer-remove-container)
+    (should (equal devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-needed))))))
+
+(ert-deftest remove-container-existent-not-running ()
+  (setq devcontainer--project-info '(((foo . "~/foo/bar/") . devcontainer-is-down)))
+  (mocker-let ((devcontainer-up-container-id () ((:output nil)))
+               (devcontainer-container-id () ((:output "8af87509ac80")))
+               (project-current () ((:output '(foo . "~/foo/bar/"))))
+               (devcontainer--call-engine-string-sync (&rest cmd) ((:input '("container" "kill" "8af87509ac80") :occur 0)
                                                                    (:input '("container" "rm" "8af87509ac80"))))
                (message (tmpl container-id) ((:input '("Removed container %s" "8af87509ac80")))))
     (devcontainer-remove-container)
@@ -807,7 +822,8 @@
   (fixture-tmp-dir "test-repo-devcontainer"
     (let ((cmd `("container" "ls"
                  ,(format "--filter=label=devcontainer.local_folder=%s" real-project-root-dir)
-                 "--format={{.ID}}")))
+                 "--format={{.ID}}"
+                 "--all=false")))
       (mocker-let ((devcontainer--call-engine-string-sync (&rest args) ((:input cmd :output nil))))
         (should (equal (devcontainer--update-project-info) 'devcontainer-is-down))
         (should (equal devcontainer--project-info `(((foo . ,project-root-dir) . devcontainer-is-down))))))))
