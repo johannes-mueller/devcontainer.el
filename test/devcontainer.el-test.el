@@ -830,6 +830,19 @@
                                                    :output '("user_from_container")))))
       (should (equal (devcontainer-remote-user) "user_from_container")))))
 
+(ert-deftest devcontainer--remote-user-no-metadata-inspect-empty ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '(""))
+                                                  (:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{.Config.User}}")
+                                                   :output '("")))))
+      (should (equal (devcontainer-remote-user) nil)))))
+
 (ert-deftest devcontainer--container-user-container-up-default-engine ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((devcontainer-container-id () ((:output "abcdef")))

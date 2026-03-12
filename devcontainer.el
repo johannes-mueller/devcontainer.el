@@ -779,7 +779,9 @@ FILENAME and ARGS are just passed."
 (defun devcontainer-remote-user ()
   "Retrieve the remote user name of the current project's devcontainer if it's up."
   (or (alist-get 'remoteUser (devcontainer--container-metadata))
-      (devcontainer--inspect-container "{{.Config.User}}")))
+      (funcall (lambda (user)
+         (and (not (string= user "")) user))
+       (devcontainer--inspect-container "{{.Config.User}}"))))
 
 (defun devcontainer-remote-environment ()
   "Retrieve the defined remote environment of current devcontainer if it's up."
