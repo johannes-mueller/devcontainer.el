@@ -652,20 +652,32 @@ commands to a shell."
   (let ((command (devcontainer-advise-command command)))
     (apply compile-fun command rest)))
 
+(defvar devcontainer--path-uri-hashtable (make-hash-table :test #'equal))
+(defvar devcontainer--uri-path-hashtable (make-hash-table :test #'equal))
+
 (cl-defun devcontainer--path-to-uri-advice (path-to-uri-fun path &key truenamep)
-  (if (devcontainer-advisable-p)
-      (let* ((truepath (if truenamep path (file-truename path)))
-             (relative (file-relative-name truepath (devcontainer--root)))
-             (in-container (concat (devcontainer-remote-workdir) relative)))
-        (funcall path-to-uri-fun in-container :truenamep t))
-    (funcall path-to-uri-fun path :truenamep truenamep)))
+  (let ((true-path (file-truename path)))
+    (if-let* ((cached (gethash true-path devcontainer--path-uri-hashtable)))
+       cached
+     (let ((result
+            (if (devcontainer-advisable-p)
+                (let* ((truepath (if truenamep path true-path))
+                       (relative (file-relative-name truepath (devcontainer--root)))
+                       (in-container (concat (devcontainer-remote-workdir) relative)))
+                  (funcall path-to-uri-fun in-container :truenamep t))
+              (funcall path-to-uri-fun path :truenamep truenamep))))
+       (puthash true-path result devcontainer--path-uri-hashtable)
+       result))))
 
 (defun devcontainer--uri-to-path-advice (uri-to-path-fun uri)
-  (let ((in-container (funcall uri-to-path-fun uri)))
-    (if (devcontainer-advisable-p)
-        (let ((relative (file-relative-name in-container (devcontainer-remote-workdir))))
-          (concat (devcontainer--root) relative))
-      in-container)))
+  (if-let* ((cached (gethash uri devcontainer--uri-path-hashtable)))
+      cached
+    (let ((in-container (funcall uri-to-path-fun uri)))
+      (if (devcontainer-advisable-p)
+          (let ((relative (file-relative-name in-container (devcontainer-remote-workdir))))
+            (concat (devcontainer--root) relative))
+        (puthash uri in-container devcontainer--uri-path-hashtable)
+        in-container))))
 
 (defun devcontainer--devcontainerize-command-p (command)
   "Return t if COMMAND is to be run inside the container.
