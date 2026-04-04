@@ -469,11 +469,13 @@ programs from being executed inside the devcontainer."
         (advice-add 'compilation-start :around #'devcontainer--compile-start-advice)
         (advice-add 'find-file-noselect :around #'devcontainer--find-file-apply-customization-advice)
         (advice-add 'eglot-path-to-uri :around #'devcontainer--path-to-uri-advice)
-        (advice-add 'eglot-uri-to-path :around #'devcontainer--uri-to-path-advice))
+        (advice-add 'eglot-uri-to-path :around #'devcontainer--uri-to-path-advice)
+        (advice-add 'eglot--connect :around #'devcontainer--eglot-connect-advice))
     (advice-remove 'compilation-start #'devcontainer--compile-start-advice)
     (advice-remove 'find-file-noselect #'devcontainer--find-file-apply-customization-advice)
     (advice-remove 'eglot-path-to-uri #'devcontainer--path-to-uri-advice)
-    (advice-remove 'eglot-uri-to-path #'devcontainer--uri-to-path-advice)))
+    (advice-remove 'eglot-uri-to-path #'devcontainer--uri-to-path-advice)
+    (advice-remove 'eglot--connect #'devcontainer--eglot-connect-advice)))
 
 (defun devcontainer--set-current-project-state (state)
   "Set the current project's devcontainer state cache to STATE."
@@ -885,9 +887,16 @@ a compatible way to `devcontainer-post-startup-hook'.
                 (add-to-list 'savehist-additional-variables 'devcontainer--customization-request-cache-alist)))))
 
 
-(cl-defun devcontainer-eglot-server (eglot-server &key initializationOptions)
-  (lambda (_interactive _project-root)
-    (append (devcontainer-advise-command eglot-server 'with-ipc) `(:initializationOptions ,initializationOptions))))
+(defun devcontainer--eglot-connect-advice (eglot-connect-fun managed-modes project class contact language-ids)
+  (let ((advised-contact (if-let* ((process (plist-member contact :process)))
+                             (progn
+                               (message "process: %s" process)
+                               (message "car: %s" (type-of (car process)))
+                               (message "cdr: %s" (type-of (cdr process)))
+                               (message "processp %s" (processp process))
+                               contact)
+                           (devcontainer-advise-command contact 'with-ipc))))
+    (apply eglot-connect-fun (list managed-modes project class advised-contact language-ids))))
 
 (provide 'devcontainer)
 
