@@ -115,7 +115,8 @@ into your startup file.
 - [X] Fix things that don't work (see [issues](https://github.com/johannes-mueller/devcontainer.el/issues/))
 - [X] Document things that work
 - [ ] See if we find a way to reliably connect to a language server inside the
-      container.  Maybe find inspiration from `eglot-booster-mode`.
+      container.  There is an experimental solution in
+      [#53](https://github.com/johannes-mueller/devcontainer.el/pull/58).
 - [ ] See if we can get [dape](https://github.com/svaante/dape) to work with
   `devcontainer-mode`.
 - [ ] See if anything more is needed that can be implemented with a reasonable
