@@ -120,7 +120,7 @@ npm install -g @@devcontainers/cli
 @end example
 
 Of course you also need a working @uref{https://docker.com,docker} installation
-and probably also @uref{https://docs.docker.com/compose/,docker}.
+and probably also @uref{https://docs.docker.com/compose/,docker compose}.
 Alternatively you can also use @uref{https://podman.io/,podman}.
 
 
