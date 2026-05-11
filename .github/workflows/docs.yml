@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build docs
         run: |
           texi2any --html \
@@ -30,13 +30,14 @@ jobs:
 
       - name: Upload static files as artifact
         id: deployment
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs-output/
 
 
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main'
 
     permissions:
       pages: write
@@ -51,4 +52,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
