@@ -249,7 +249,7 @@ https://containers.dev/implementors/spec/#devcontainerjson"
 If SHOW-BUFFER is non nil, the buffer of the startup process is shown."
   (interactive
    (list (called-interactively-p 'interactive)))
-  (when (eq (devcontainer--current-project-state) 'devcontainer-is-starting)
+  (when (equal (devcontainer--current-project-state) 'devcontainer-is-starting)
     (user-error "Another devcontainer is starting up.  Please wait until that is finished"))
   (if (and (if (devcontainer-container-needed-p) t
              (message "Project does not use a devcontainer.")
@@ -427,7 +427,7 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let* ((container-id (devcontainer-up-container-id)))
     (devcontainer--call-engine-string-sync "container" "kill" container-id))
-  (when-let ((container-id (or (devcontainer-container-id)
+  (when-let ((container-id (or (devcontainer--container-id 'also-those-not-running)
                                (user-error "No container to be removed"))))
     (devcontainer--call-engine-string-sync "container" "rm" container-id)
     (devcontainer--set-current-project-state 'devcontainer-is-needed)
