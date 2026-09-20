@@ -168,7 +168,7 @@ Otherwise, raise an `error'."
 
 (defun devcontainer--root ()
   "Deduce the root directory of the current project."
-  (when-let ((proj (project-current)))
+  (when-let* ((proj (project-current)))
       (expand-file-name (project-root proj))))
 
 (defun devcontainer-config-files ()
@@ -415,7 +415,7 @@ of the devcontainer stack simply remain alive."
 (defun devcontainer-kill-container ()
   "Kill the primary docker container of the current project."
   (interactive)
-  (when-let ((container-id (or (devcontainer-up-container-id)
+  (when-let* ((container-id (or (devcontainer-up-container-id)
                                (user-error "No container running"))))
     (devcontainer--call-engine-string-sync "container" "kill" container-id)
     (devcontainer--update-project-info)
@@ -427,7 +427,7 @@ of the devcontainer stack simply remain alive."
   (interactive)
   (when-let* ((container-id (devcontainer-up-container-id)))
     (devcontainer--call-engine-string-sync "container" "kill" container-id))
-  (when-let ((container-id (or (devcontainer-container-id)
+  (when-let* ((container-id (or (devcontainer-container-id)
                                (user-error "No container to be removed"))))
     (devcontainer--call-engine-string-sync "container" "rm" container-id)
     (devcontainer--set-current-project-state 'devcontainer-is-needed)
@@ -635,7 +635,7 @@ work no matter if it is used in `compile' or in other functions issuing
 commands to a shell."
   (if (and (devcontainer-advisable-p)
            (devcontainer--devcontainerize-command-p (if (stringp command) command (string-join command " "))))
-      (if-let ((advice (devcontainer-advice)))
+      (if-let* ((advice (devcontainer-advice)))
           (if (stringp command)
               (devcontainer--fix-quoted-env-elements
                (string-join (append (mapcar (lambda (el) (shell-quote-argument el nil)) advice) (list command)) " "))
@@ -684,7 +684,7 @@ FILENAME and ARGS are just passed."
 
 (defun devcontainer--ask-configuration-or-cached ()
   "Ask whether to apply devcontainer's customization if answer not cached."
-  (if-let ((cached (assoc (project-current) devcontainer--customization-request-cache-alist)))
+  (if-let* ((cached (assoc (project-current) devcontainer--customization-request-cache-alist)))
       (cdr cached)
     (let ((answer (y-or-n-p "Apply container customizations for this project? ")))
       (push (cons (project-current) answer) devcontainer--customization-request-cache-alist)
@@ -839,7 +839,7 @@ a compatible way to `devcontainer-post-startup-hook'.
 * REMOTE-USER – a string of the remote user name
 * REMOTE-WORKDIR – the workdir path in the container."
   (interactive
-   (if-let ((container-id (devcontainer-up-container-id)))
+   (if-let* ((container-id (devcontainer-up-container-id)))
        (list container-id (devcontainer-container-name) (devcontainer-remote-user) (devcontainer-remote-workdir))
      (user-error "No running devcontainer for current project")))
   (let ((vec (format "/%s:%s@%s:%s" devcontainer-engine remote-user (or container-id container-name) remote-workdir)))
