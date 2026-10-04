@@ -590,16 +590,10 @@
       (should (eq (car report) 'user-error))
       (should (equal (cadr report) "No devcontainer for current project")))))
 
-(ert-deftest restart-container-not-up ()
-  (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-up-container-id () ((:output nil)))
-                 (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
-      (devcontainer-restart))))
-
 (ert-deftest restart-container-is-up ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-up-container-id () ((:output t)))
-                 (devcontainer-kill-container () ((:output t)))
+    (mocker-let ((devcontainer--container-id (also-not-running) ((:input '(nil) :output "abcdef")))
+                 (devcontainer--call-engine-string-sync (&rest args) ((:input '("container" "kill" "abcdef"))))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-restart))))
 
@@ -609,17 +603,11 @@
       (should (eq (car report) 'user-error))
       (should (equal (cadr report) "No devcontainer for current project"))) ))
 
-(ert-deftest rebuild-and-restart-container-not-up ()
+(ert-deftest rebuild-and-restart-container-existent ()
   (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-up-container-id () ((:output nil)))
-                 (devcontainer-remove-image () ((:output t)))
-                 (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
-      (devcontainer-rebuild-and-restart))))
-
-(ert-deftest rebuild-and-restart-container-is-up ()
-  (fixture-tmp-dir "test-repo-devcontainer"
-    (mocker-let ((devcontainer-up-container-id () ((:output t)))
-                 (devcontainer-remove-container () ((:output t)))
+    (mocker-let ((devcontainer--container-id (also-not-running) ((:input '(nil) :output "abcdef")))
+                 (devcontainer--call-engine-string-sync (&rest args) ((:input '("container" "kill" "abcdef"))
+                                                                      (:input '("container" "rm" "abcdef"))))
                  (devcontainer-remove-image () ((:output t)))
                  (devcontainer-up (show-buffer) ((:input '(nil) :output t))))
       (devcontainer-rebuild-and-restart))))

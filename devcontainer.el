@@ -386,8 +386,8 @@ devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-up-container-id)
-      (devcontainer-kill-container))
+    (when-let* ((container-id (devcontainer--container-id nil)))
+      (devcontainer--call-engine-string-sync "container" "kill" container-id))
     (devcontainer-up show-buffer)))
 
 ;;;###autoload
@@ -406,8 +406,9 @@ of the devcontainer stack simply remain alive."
    (list (called-interactively-p 'interactive)))
   (when (or (devcontainer-container-needed-p)
             (user-error "No devcontainer for current project"))
-    (when (devcontainer-up-container-id)
-      (devcontainer-remove-container))
+    (when-let* ((container-id (devcontainer--container-id nil)))
+      (devcontainer--call-engine-string-sync "container" "kill" container-id)
+      (devcontainer--call-engine-string-sync "container" "rm" container-id))
     (devcontainer-remove-image)
     (devcontainer-up show-buffer)))
 
