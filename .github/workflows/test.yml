@@ -32,36 +32,22 @@ jobs:
           - emacs_version: 'release-snapshot'
             allow_failure: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: purcell/setup-emacs@master
         with:
           version: ${{ matrix.emacs_version }}
+      - uses: fish-actions/install-fish@master
 
-      - uses: cask/setup-cask@master
-        with:
-          version: 'snapshot'
+      - name: Install Eldev
+        uses: emacs-eldev/setup-eldev@v1
 
       - name: Install dependencies
-        run: '$HOME/.cask/bin/cask install'
-
-      - name: Byte compile files
-        run: '$HOME/.cask/bin/cask build'
+        run: eldev prepare test
 
       - name: Run tests
         if: matrix.allow_failure != true
-        run: '$HOME/.cask/bin/cask exec ert-runner'
-
-      - name: Package lint
-        run: 'cask emacs -Q -batch -f package-lint-batch-and-exit *.el || true'
-
-      - name: Checkdoc
-        run: |
-          for FILE in *.el
-          do cask emacs -batch \
-              -eval "(setq checkdoc-verb-check-experimental-flag nil)" \
-              -eval "(checkdoc-file \"${FILE}\")"
-          done
+        run: eldev -p -dt test
 
       - name: Run tests (allow failure)
         if: matrix.allow_failure == true
-        run: $HOME/.cask/bin/cask exec ert-runner || true
+        run: eldev -p -dt test || true

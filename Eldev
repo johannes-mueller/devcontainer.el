@@ -1,0 +1,8 @@
+; -*- mode: emacs-lisp; lexical-binding: t -*-
+
+(eldev-use-package-archive 'melpa-unstable)
+(eldev-use-package-archive 'gnu)
+
+(eldev-use-plugin 'autoloads)
+
+(eldev-add-extra-dependencies 'test 'mocker)

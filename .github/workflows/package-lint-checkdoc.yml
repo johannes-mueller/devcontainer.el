@@ -19,28 +19,25 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: purcell/setup-emacs@master
         with:
-          version: 30.1
+          version: 31.1
 
-      - uses: cask/setup-cask@master
-        with:
-          version: 'snapshot'
+      - name: Install Eldev
+        uses: emacs-eldev/setup-eldev@v1
 
       - name: Install dependencies
-        run: '$HOME/.cask/bin/cask install'
+        run: eldev prepare test
 
-      - name: Byte compile files
-        run: '$HOME/.cask/bin/cask build'
+      - name: Byte compile
+        run: eldev compile
 
       - name: Package lint
-        run: 'cask emacs -Q -batch -f package-lint-batch-and-exit *.el'
+        run: eldev lint package-lint
+
+      - name: relint
+        run: eldev lint relint
 
       - name: Checkdoc
-        run: |
-          for FILE in *.el
-          do cask emacs -batch \
-              -eval "(setq checkdoc-verb-check-experimental-flag nil)" \
-              -eval "(checkdoc-file \"${FILE}\")"
-          done
+        run: eldev lint checkdoc
