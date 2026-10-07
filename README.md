@@ -138,18 +138,14 @@ you have something more concrete, you can for sure also file an issue.
 This package uses unit tests defined by Emacs' built in
 [ERT](https://www.gnu.org/software/emacs/manual/html_mono/ert.html) testing
 framework. An easy way to run the tests is
-[ert-runner.el](https://github.com/rejeep/ert-runner.el). To run the test suite
-from the command line simply
+[eldev](https://emacs-eldev.github.io). To run the test suite from the command
+line simply
 
-* Install [Cask](https://github.com/cask/cask) on your system
+* Install [eldev](https://emacs-eldev.github.io/eldev/#installation) on your system
 * Open a shell in the repo's root directory
-* Install the rependencies using
-```
-$ cask install
-```
 * Run the test suite using
 ```
-$ cask exec ert-runner
+$ eldev test
 ```
 
 If you want to run the tests interactively from within emacs, you might want to
