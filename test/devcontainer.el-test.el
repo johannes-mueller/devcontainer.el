@@ -886,6 +886,34 @@
     (mocker-let ((devcontainer-container-id () ((:output nil))))
       (should-not (devcontainer-remote-environment)))))
 
+(ert-deftest devcontainer--container-metadata-array-label ()
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("[{\"remoteUser\":\"vscode\"}]")))))
+      (should (equal (devcontainer--container-metadata)
+                     '((remoteUser . "vscode")))))))
+
+(ert-deftest devcontainer--container-metadata-bare-object-label ()
+  "Reproduce the broken metadata label of `build:' compose services.
+
+The devcontainer CLI serializes the metadata into the image of a
+`dockerComposeFile' service with a `build:' section as a bare JSON
+object rather than a JSON array of objects.  This used to break
+`devcontainer--container-metadata' with `wrong-type-argument listp'."
+  (fixture-tmp-dir "test-repo-devcontainer"
+    (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
+                 (process-lines (cmd &rest args) ((:input '("docker" "container" "inspect"
+                                                            "abcdef"
+                                                            "--format={{index .Config.Labels \"devcontainer.metadata\"}}")
+                                                   :output '("{\"postCreateCommand\":\"mix local.hex --force && mix local.rebar --force\",\"customizations\":{\"vscode\":{\"extensions\":[\"elixir-lsp.elixir-ls\",\"jakebecker.elixir-ls\"]}},\"remoteUser\":\"root\"}")))))
+      (should (equal (devcontainer--container-metadata)
+                     '((postCreateCommand . "mix local.hex --force && mix local.rebar --force")
+                       (customizations (vscode (extensions "elixir-lsp.elixir-ls" "jakebecker.elixir-ls")))
+                       (remoteUser . "root")))))))
+
 (ert-deftest devcontainer--remote-env-no-metadata ()
   (fixture-tmp-dir "test-repo-devcontainer"
     (mocker-let ((devcontainer-container-id () ((:output "abcdef")))
