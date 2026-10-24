@@ -7,3 +7,4 @@ devcontainer_html
 # Added automatically by ‘eldev init’.
 /.eldev
 /Eldev-local
+/devcontainer-autoloads.el
