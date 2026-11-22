@@ -756,7 +756,13 @@ FILENAME and ARGS are just passed."
   "Retrieve the devcontainer's metadata if it's up."
   (and-let* ((metadata-json (devcontainer--inspect-container "{{index .Config.Labels \"devcontainer.metadata\"}}"))
              (_ (length> metadata-json 0)))
-    (seq-reduce #'append (json-parse-string metadata-json :object-type 'alist) nil)))
+    (let ((metadata (json-parse-string metadata-json :object-type 'alist :array-type 'list)))
+      ;; Some container exporters (i.e. the devcontainer CLI writing the
+      ;; metadata into a built image) don't respect the spec, which requires a
+      ;; JSON array of objects.  They serialize the whole object into one
+      ;; label.  In the latter case the parsed alist contains dotted pairs,
+      ;; on which `append' would raise.
+      (seq-reduce #'append (if (consp (caar metadata)) metadata (list metadata)) nil))))
 
 (defun devcontainer--inspect-container (format-query)
   "Query FORMAT-QUERY from `docker container inspect --format='."
